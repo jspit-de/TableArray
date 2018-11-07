@@ -61,11 +61,6 @@ var_dump($newData === $expected); //bool(true)
   * fetchAllObj
   * fetchRaw
 
-
-### Demo and Test
-
-http://jspit.de/check/phpcheck.class.tableArray.php
-
 ### Requirements
 
 - PHP 5.6+
