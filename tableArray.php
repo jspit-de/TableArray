@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.3                                                             | 
-|  Date: 2018-11-06                                                         |
+|  Version: 1.32                                                            | 
+|  Date: 2018-11-13                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -23,6 +23,7 @@ class tableArray implements JsonSerializable{
   private $data;  //2.dim 
   
   const REGEX_FIELD = '[\w\-\.@]+';
+  const REGEX_PAR = '[\'\"]?[\w\-\.@%\ ]+[\'\"]?';
   const REGEX_AS = '[\w\-\.]+';
   
   const CHECK_DATA_DURING_CONSTRUCT = true;
@@ -32,7 +33,7 @@ class tableArray implements JsonSerializable{
   * @param array : table array
   */
   public function __construct(array $data = []){
-    
+    mb_internal_encoding("UTF-8");
     $firstRow = reset($data);
     if(is_object($firstRow)){
       $firstRow = (array)$firstRow;
@@ -52,10 +53,27 @@ class tableArray implements JsonSerializable{
     }
     
     $this->data = $data;
-    $this->userFct = array(
-      'UPPER' => function($val){return strtoupper($val);},
-      'LOWER' => function($val){return strtolower($val);},
-    );
+    $this->userFct = [
+      'UPPER' => 'strtoupper',  //
+      'LOWER' => 'strtolower',
+      'FORMAT' => 'sprintf',  //par: 'format',field,[field]
+      'DATEFORMAT' => function($format,$date){
+        if(is_string($date)) $date = date_create($date);
+        if($date instanceOf DateTime) {
+          return $date->format($format);
+        }
+        return "?"; 
+      },
+      'REPLACE' => 'str_replace',  //par: 'search','replace',fieldname
+      'SUBSTR' => 'mb_substr',  //par: fieldname,'start',['length']
+      'LIKE' => function($val,$likePattern){  //case insensitiv
+        $pattern = preg_quote($likePattern,"~");
+        $pattern = strtr($pattern, ['%' => '.*?', '_' => '.']);
+        return preg_match('~^'.$pattern.'$~i',$val);
+      },
+      'INTVAL' => 'intval',
+      'FLOATVAL' => 'floatval',
+    ];
   }
 
  /*
@@ -148,7 +166,7 @@ class tableArray implements JsonSerializable{
   * @return $this
   */  
   public function orderBy($sqlOrderTerm){
-    $this->setSort($sqlOrderTerm);
+    $this->sqlSort = $this->setSort($sqlOrderTerm);
     //uasort($this->data,array($this,"sortFunction"));
     usort($this->data,array($this,"sortFunction"));
     return $this;
@@ -176,69 +194,69 @@ class tableArray implements JsonSerializable{
       throw new \InvalidArgumentException($msg);
     }
     //prepare and explode terms
-    //in brackets replace comma with semocolon 
-    $colKeys = preg_replace_callback(
-      '~\([^\(\)]+\)~', 
-      function($val){return str_replace(",",";",$val[0]);},
-      $colKeys
-    );
-    $colKeys = array_map(
-      function($val){return trim(str_replace(";",",",$val));},
-      explode(',',$colKeys)
-    );
-    //function(field) AS asName
-    $regExFct = '~^(?P<function>\w+) *\((?P<field>('.self::REGEX_FIELD.',?)+)\) +AS +(?P<as>'.self::REGEX_AS.')$~i';
-    //field AS asName
-    $regExFieldAs = '~^(?P<field>'.self::REGEX_FIELD.') +AS +(?P<as>'.self::REGEX_AS.')$~i';
-    $validKeys = array_keys(reset($this->data));
-    foreach($colKeys as $colKeyIndex => $key){
-      if(in_array($key,$validKeys)) continue;  //fieldname solo
-      
-      $isFieldAs = (bool)preg_match($regExFieldAs,$key,$match);
-      $isFct = $isFieldAs ? false : (bool)preg_match($regExFct,$key,$match);
-      if($isFct or $isFieldAs){
-        //check if field exists
-        $fieldNames = array_map('trim',explode(',',$match['field']));
-        //$fieldName = $match['field']; //name or name1,name2..
-        $validFields = array_intersect($fieldNames,$validKeys);
-        if($fieldNames == $validFields){
-          //check if function exists
-          $keyFunc = $isFct ? $match['function'] : "";
-          if(($isFct AND array_key_exists($keyFunc,$this->userFct)) OR $isFieldAs){
-            $asName = $match['as'];
-            //add column
-            foreach($this->data as $keyData => $row){
-              $this->data[$keyData][$asName] = $isFct 
-                //? $this->userFct[$keyFunc]($row[$fieldNames[0]])
-                ? call_user_func_array(
-                    $this->userFct[$keyFunc], 
-                    array_intersect_key($row, array_flip($fieldNames))
-                  )
-                : $row[$fieldNames[0]];
-            }
-            //replace term with asName
-            $colKeys[$colKeyIndex] = $asName;
-            $validKeys[] = $asName;  //for check
-          }
-          else { 
-            $msg = "Unknown Function  '".$match['function']."' ".__METHOD__;
+    $validFieldNames = array_keys(reset($this->data));
+    $selectFileds = [];
+    foreach($this->splitarg($colKeys) as $termObj){
+      //termObj with ->name, ->as, ->fct, ->fpar, ->term
+      if($fct = $termObj->fct) {
+        //function call
+        if(!array_key_exists($fct,$this->userFct)){
+          $msg = "Unknown Function  '".$fct."' ".__METHOD__;
+          throw new \InvalidArgumentException($msg);
+        }
+        $parObjects = $this->splitarg($termObj->fpar);
+        //check if fields ok and collect in a array
+        $parameters = [];
+        foreach($parObjects as $parObj){
+          $trimStr = trim($parObj->term,'\'"');
+          if($parObj->term == $trimStr AND !in_array($trimStr,$validFieldNames)){
+            $msg = "Unknown Parameter-Fieldname '$trimStr' ".__METHOD__;
             throw new \InvalidArgumentException($msg);
+          }
+          $parameters[] = $parObj->term;
+        }
+        
+        $nameAs = $termObj->as;
+        foreach($this->data as $keyData => $row){
+          //current parameters
+          $curPar = [];
+          foreach($parameters as $par){
+            $trimStr = trim($par,'\'"');
+            $curPar[] = $trimStr == $par ? $row[$par] : $trimStr;
+          }
+          
+          $this->data[$keyData][$nameAs] = call_user_func_array(
+            $this->userFct[$fct], 
+            $curPar
+          );
+        }
+        $selectFileds[] = $nameAs;
+        $validFieldNames[] = $nameAs; 
+      }
+      else {
+        if(in_array($termObj->name,$validFieldNames)) {
+          $fieldName = $termObj->name;
+          if($nameAs = $termObj->as){
+            foreach($this->data as $keyData => $row){
+              $this->data[$keyData][$nameAs] = $row[$fieldName]; 
+            }
+            $selectFileds[] = $nameAs;
+            $validFieldNames[] = $nameAs; 
+          }
+          else {
+            $selectFileds[] = $fieldName;
           }
         }
         else {
-          $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
+          $msg = "Unknown fieldname '$termObj->name' ".__METHOD__;
           throw new \InvalidArgumentException($msg);
-        }
-      }
-      else {
-        $msg = "Unknown fieldname '$key' ".__METHOD__;
-        throw new \InvalidArgumentException($msg);
+        }  
       }
     }
-    $this->selectKeys = $colKeys;
+    $this->selectKeys = $selectFileds;
     return $this;
   }
-  
+ 
  /*
   * filter all rows with field is like all elements from array
   * @param $fieldName: key from a column
@@ -462,64 +480,72 @@ class tableArray implements JsonSerializable{
     return $this->data;
   }
 
-  public function setSort($sqlOrderTerm = ""){
-    $sqlOrderTerm = preg_replace('~\R~',' ',$sqlOrderTerm);
-    $sqlOrders = array_map('trim',explode(',',$sqlOrderTerm));
+  //prepare sqlOrderTerm for sort-function
+  protected function setSort($sqlOrderTerm = ""){
+    $validFieldNames = array_keys(reset($this->data));
+    $sqlObjects = $this->splitarg($sqlOrderTerm);
     
-    $patterns = array(
-      'field' => '~^(?P<field>'.self::REGEX_FIELD.') *(?P<desc>ASC|DESC)? *(?P<flag>NATURAL|NUMERIC|STRING)?$~i',
-      'function' => '~^(?P<function>\w+) *\((?P<field>'.self::REGEX_FIELD.')\) *(?P<desc>ASC|DESC)? *(?P<flag>NATURAL|NUMERIC|STRING)?$~i',
-      'like' => '~(?P<field>'.self::REGEX_FIELD.') +like +(?P<param>[^ ]+) *(?P<desc>ASC|DESC)?~i',
-    );
-
-    $this->sqlSort = [];
-    foreach($sqlOrders as $i => $sqlPart){
-      foreach($patterns as $typ => $regEx){
-        if(preg_match($regEx,$sqlPart,$match)) break;
-      }
-      if(empty($match)){
-        //error
-        $msg = "Syntax-Error Parameter ".__METHOD__." near '".$sqlPart."'";
-        throw new \InvalidArgumentException($msg);
-      } else {
-        $match = array_filter($match,'is_string',ARRAY_FILTER_USE_KEY);
-        $match['typ'] = $typ;
-        if($typ == 'function' AND !array_key_exists($match['function'],$this->userFct)) {
+    foreach($sqlObjects as $i => $sqlObj){
+      //$sqlObj->name, $sqlObj->as, $sqlObj->fct,
+      //$sqlObj->fpar, $sqlObj->term, $sqlObj->rest
+      if($sqlObj->fct){
+        if(!array_key_exists($sqlObj->fct,$this->userFct)) {
           $msg = "Unknown Function  '".$match['function']."' ".__METHOD__;
           throw new \InvalidArgumentException($msg);
         }
-        if(!isset($match['param'])) $match['param'] = ""; 
-        if(!isset($match['flag'])) $match['flag'] = ""; 
-        $match['desc'] = (isset($match['desc']) AND strtolower($match['desc']) == 'desc');
-        $this->sqlSort[$i] = $match;
+        //$sqlObj->fpar as array
+        $parArr = [];
+        foreach($this->splitarg($sqlObj->fpar) as $parObject){
+          $parArr[] =  $parObject->term;
+        }
+        $sqlObjects[$i]->fpar = $parArr;
       }
-     
+      else {
+        //name or name as newname
+        if(!in_array($sqlObj->name,$validFieldNames)) {
+          //error
+          $msg = "Unknown Field-Name '".$sqlObj->name."' ".__METHOD__." near '".$sqlObj->term."'";
+          throw new \InvalidArgumentException($msg);
+        }
+      }
+      //DESC ?
+      $sqlObjects[$i]->desc = (stripos("DESC",$sqlObj->rest) !== false);
+      $sqlObjects[$i]->flag = (stripos("NATURAL",$sqlObj->rest) !== false) ? "NATURAL" : "";
     }
-    return $this;
+    return $sqlObjects;
   }
-  
-  public function sortFunction($a,$b){
+ 
+  protected function sortFunction($a,$b){
     foreach($this->sqlSort as $sortInfo){
       $cmp = 0;
-      $val_a = $a[$sortInfo['field']];
-      $val_b = $b[$sortInfo['field']];
-      if($sortInfo['typ'] == 'field') {
-        $cmp = $this->compare($val_a, $val_b, $sortInfo['flag']);
+      if($sortInfo->fct) {
+        //function
+        $curFctParA = $curFctParB = [];
+        foreach($sortInfo->fpar as $fpar){
+          $trimPar = trim($fpar,"\"'"); 
+          if($trimPar == $fpar) {
+            //$fpar is field-Name 
+            $curFctParA[] = $a[$fpar];
+            $curFctParB[] = $b[$fpar];
+          }
+          else {
+            //fpar is a fix string
+            $curFctParA[] = $trimPar;
+            $curFctParB[] = $trimPar;
+          }
+        }
+        $fct = $this->userFct[$sortInfo->fct];
+        $val_a = call_user_func_array($fct, $curFctParA);
+        $val_b = call_user_func_array($fct, $curFctParB);
       }
-      elseif($sortInfo['typ'] == 'like') {
-        $search = trim($sortInfo['param']," %'\"");
-        $cmpA = (int)(stripos($val_a,$search) !== false) ;
-        $cmpB = (int)(stripos($val_b,$search) !== false);
-        if($cmpB != $cmpA) $cmp = $cmpB < $cmpA ? 1 : -1;
+      else {
+        //field
+        $val_a = $a[$sortInfo->name];
+        $val_b = $b[$sortInfo->name];
       }
-      elseif($sortInfo['typ'] == 'function') {
-        $userFct = $this->userFct[$sortInfo['function']];
-        $val_a = $a[$sortInfo['field']];
-        $val_b = $b[$sortInfo['field']];
-        $val_a = $userFct($val_a);
-        $val_b = $userFct($val_b);
-        $cmp = $this->compare($val_a, $val_b, $sortInfo['flag']);      }
-      if($sortInfo['desc']) $cmp = -$cmp;
+      $cmp = $this->compare($val_a, $val_b, $sortInfo->flag);
+      
+      if($sortInfo->desc) $cmp = -$cmp;
       if($cmp != 0) return $cmp;
     }
     return $cmp;
@@ -634,6 +660,58 @@ class tableArray implements JsonSerializable{
       }
     }
     return $result;
+  }
+
+ /*
+  * split 'f1,fkt(f1,"text,text2"),f3)'
+  * @return array of objects with ->name, ->as, ->fct, ->fpar, ->term
+  */
+  protected function splitarg($str)
+  {
+      $str = preg_replace('~\R~',' ',$str).",";
+      $tokens = preg_split("~([,\'\(\)\"])~",$str,0,PREG_SPLIT_DELIM_CAPTURE+PREG_SPLIT_NO_EMPTY);
+      $arr=[];
+      $delim = '';
+      $openBracked = false;
+      $arg = (object)null;
+      $arg->fpar = $arg->fct = $arg->as = $arg->name = $strArg = "";  
+          
+      foreach($tokens as $itok => $tok){
+          if($tok == "," AND $delim == "" AND !$openBracked){
+            $strArg = trim($strArg);
+            $arg->term = $strArg;
+            if($strArg != ""){
+              //rest
+              $remove = $arg->name;
+              if($arg->fct) $remove .= "(".$arg->fpar.")";
+              $pos = strpos($strArg,$remove);
+              $arg->rest = $pos === 0 ? trim(substr($strArg,strlen($remove))) : $strArg;
+              $arr[] = $arg;
+              $arg = (object)null;
+              $arg->fpar = $arg->fct = $arg->as = $arg->name = $strArg = ""; 
+            }
+          }
+          else{
+              if($strArg == "") $arg->name = strtok($tok," ");
+              $strArg .= $tok;
+              if($openBracked AND $tok != ")") $arg->fpar .= $tok; 
+              if($tok == "(") {
+                  $openBracked = true;
+                  if($itok > 0) $arg->fct = trim($tokens[$itok-1]);
+                  $arg->fpar = "";
+              }
+              elseif($tok == ")")  $openBracked = false;
+              elseif($tok == '"' OR $tok == "'") {
+                  if($delim == "") $delim = $tok;
+                  elseif($delim == $tok) $delim = "";
+              }
+              elseif(($posAs = stripos($tok," AS ")) !== false){
+                  $arg->as = trim(substr($tok,$posAs+4));
+                  $arg->name = trim(substr($tok,0,$posAs));
+              }
+          }
+      }
+      return $arr;
   }
   
 }
