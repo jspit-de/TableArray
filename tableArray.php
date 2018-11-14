@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.32                                                            | 
-|  Date: 2018-11-13                                                         |
+|  Version: 1.33                                                            | 
+|  Date: 2018-11-14                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -21,10 +21,6 @@ class tableArray implements JsonSerializable{
   private $selectKeys = null;  //array with valid keys after SELECT, default null = All
 
   private $data;  //2.dim 
-  
-  const REGEX_FIELD = '[\w\-\.@]+';
-  const REGEX_PAR = '[\'\"]?[\w\-\.@%\ ]+[\'\"]?';
-  const REGEX_AS = '[\w\-\.]+';
   
   const CHECK_DATA_DURING_CONSTRUCT = true;
   
@@ -73,6 +69,7 @@ class tableArray implements JsonSerializable{
       },
       'INTVAL' => 'intval',
       'FLOATVAL' => 'floatval',
+      'TRIM' => 'trim',  //par: fieldName[,'$character_mask']
     ];
   }
 
@@ -374,7 +371,7 @@ class tableArray implements JsonSerializable{
   * flatten: flat all fields from row 
   */
   public function flatten($delimter = "."){
-    if(array_filter(reset($this->data),'is_array')) {
+    if(array_filter(reset($this->data),function($val){ return !is_scalar($val);})) {
       foreach($this->data as $i => $row){
         $this->data[$i] = $this->arrayFlatten($row,$delimter);
       }
@@ -386,34 +383,34 @@ class tableArray implements JsonSerializable{
   * addFlatKeys: add flat cols from array-fields 
   */
   public function addFlatKeys($delimter = "."){
-    if(array_filter(reset($this->data),'is_array')) {
+    if(array_filter(reset($this->data),function($val){ return !is_scalar($val);})) {
       foreach($this->data as $i => $row){
         $this->data[$i] = array_merge($row,$this->arrayFlatten($row,$delimter));
       }
     }
     return $this;
   }
-  
+ 
+ /*
+  * get the array
+  * @param: integer $limit > 0
+  * @return array
+  */  
+  public function fetchLimit($limit = 1) {
+    $data = [];
+    foreach($this->data as $row){
+      if($limit-- <= 0) break;
+      $data[] = $row;
+    }
+    return $this->getSelectData($data);
+  }
   
  /*
   * get the array
   * @return array
   */  
   public function fetchAll(){
-    if($this->data === []) return [];
-    //select fields and sort cols
-    $selectKeys = $this->selectKeys;
-    if($selectKeys === null) { //All
-      $selectKeys = array_keys(reset($this->data));
-    }
-    $fct = function($row) use($selectKeys) {
-      $newRow = [];
-      foreach($selectKeys as $selKey){
-        if(array_key_exists($selKey,$row)) $newRow[$selKey] = $row[$selKey];
-      }
-      return $newRow;
-    };
-    return array_map($fct, $this->data);
+    return $this->getSelectData($this->data);
   }
 
  /*
@@ -645,18 +642,19 @@ class tableArray implements JsonSerializable{
   }
   
   //
-  private function arrayFlatten(array $array, $delimiter = '.',$prefix = '',$postfix = '') {
+  private function arrayFlatten(array $array, $delimiter = '.',$prefix = '') {
     $result = array();
     foreach($array as $key=>$value) {
+      if($value instanceof stdClass) $value = (array)$value;
       if(is_array($value)) {
         if(empty($value)) {
-          $result[$prefix . $key. $postfix . $delimiter] = "";  //empty array
+          $result[$prefix.$key. $delimiter] = "";  //empty array
         } else {
-          $result += $this->arrayFlatten($value, $delimiter, $prefix . $key . $postfix. $delimiter, $postfix);
+          $result += $this->arrayFlatten($value, $delimiter, $prefix.$key.$delimiter);
         }
       }
       else {
-        $result[$prefix . $key. $postfix] = $value;
+        $result[$prefix.$key] = $value;
       }
     }
     return $result;
@@ -712,6 +710,26 @@ class tableArray implements JsonSerializable{
           }
       }
       return $arr;
+  }
+  
+ /*
+  * process $this->selectKeys for $data
+  */
+  protected function getSelectData(array $data){
+    if($data === []) return [];
+    //select fields and sort cols
+    $selectKeys = $this->selectKeys;
+    if($selectKeys === null) { //All
+      $selectKeys = array_keys(reset($this->data));
+    }
+    $fct = function($row) use($selectKeys) {
+      $newRow = [];
+      foreach($selectKeys as $selKey){
+        if(array_key_exists($selKey,$row)) $newRow[$selKey] = $row[$selKey];
+      }
+      return $newRow;
+    };
+    return array_map($fct, $data);
   }
   
 }

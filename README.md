@@ -83,17 +83,19 @@ var_dump($newData === $expected); //bool(true)
   * fetchKeyValue
   * fetchAllObj
   * fetchRaw
+  * fetchLimit
   
 ### Internal functions may be used by select and orderBy
-  * UPPER
-  * LOWER
-  * FORMAT
-  * DATEFORMAT
-  * REPLACE
-  * SUBSTR
-  * LIKE
-  * INTVAL
-  * FLOATVAL
+  * UPPER(fieldName)
+  * LOWER(fieldName)
+  * TRIM(fieldName[,'character_mask'])
+  * FORMAT('format',fieldName[,fieldName])
+  * DATEFORMAT('dateFormat',fieldName)
+  * REPLACE('search','replace',fieldName)
+  * SUBSTR(fieldName,'start'[,length])
+  * LIKE(fieldName,'likePattern')
+  * INTVAL(fieldName)
+  * FLOATVAL(fieldName)
   
 ### Demo and Test
 
