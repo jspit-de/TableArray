@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.33                                                            | 
-|  Date: 2018-11-14                                                         |
+|  Version: 1.4                                                             | 
+|  Date: 2018-11-16                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -20,25 +20,36 @@ class tableArray implements JsonSerializable{
   private $sqlSort = [];  //internal
   private $selectKeys = null;  //array with valid keys after SELECT, default null = All
 
-  private $data;  //2.dim 
+  private $data = [];  //2.dim 
   
-  const CHECK_DATA_DURING_CONSTRUCT = true;
+  const CHECK_DATA_DURING_CONSTRUCT = false;
   
  
  /*
-  * @param array : table array
+  * @param mixed : table array or iterator
   */
-  public function __construct(array $data = []){
-    mb_internal_encoding("UTF-8");
-    $firstRow = reset($data);
+  public function __construct($data = []){
+    if(is_array($data)){
+      $this->data = $data;
+    }
+    elseif(is_iterable($data)){
+      foreach($data as $row){
+        $this->data[] = $row;
+      }
+    }
+    else{
+      $msg = "Parameter for ".__METHOD__." must be a array or iterable";
+      throw new \InvalidArgumentException($msg);
+    }
+    $firstRow = reset($this->data);
     if(is_object($firstRow)){
       $firstRow = (array)$firstRow;
-      foreach($data as $i => $row){
-        $data[$i] = (array)$row;
+      foreach($this->data as $i => $row){
+        $this->data[$i] = (array)$row;
       }
     }
     if(self::CHECK_DATA_DURING_CONSTRUCT) {
-      if(!self::check($data)) {
+      if(!self::check($this->data)) {
         $msg = "Parameter must be a table-array for ".__METHOD__;
         throw new \InvalidArgumentException($msg);
       }      
@@ -47,8 +58,8 @@ class tableArray implements JsonSerializable{
       $msg = "Parameter must a array with dimension 2".__METHOD__;
       throw new \InvalidArgumentException($msg);
     }
-    
-    $this->data = $data;
+        
+    mb_internal_encoding("UTF-8");
     $this->userFct = [
       'UPPER' => 'strtoupper',  //
       'LOWER' => 'strtolower',
@@ -70,6 +81,13 @@ class tableArray implements JsonSerializable{
       'INTVAL' => 'intval',
       'FLOATVAL' => 'floatval',
       'TRIM' => 'trim',  //par: fieldName[,'$character_mask']
+      'SCALE' => function($val, $factor = 1, $add = 0, $format = null){
+        $val = $val * $factor + $add;
+        if(is_string($format)) {
+          $val = sprintf($format, $val);
+        }
+        return $val;  
+      }
     ];
   }
 
@@ -110,6 +128,10 @@ class tableArray implements JsonSerializable{
       $array[] = json_decode(json_encode($element), true);
     }
     return new static($array);
+  }
+
+  public static function createFromIterator($iterator){
+    return new static($iterator);
   }
   
   
@@ -303,8 +325,8 @@ class tableArray implements JsonSerializable{
   * @param $refId name id Basis-Array
   * @return $this
   */
-  public function innerJoinOn(array $ref, $idRef, $refId){
-    return $this->joinOn($ref, $idRef, $refId, 'inner');
+  public function innerJoinOn(array $ref, $tableAlias, $idRef, $refId){
+    return $this->joinOn($ref, $tableAlias, $idRef, $refId, 'inner');
   }
 
  /*
@@ -314,8 +336,8 @@ class tableArray implements JsonSerializable{
   * @param $refId name id Basis-Array
   * @return $this
   */
-  public function leftJoinOn(array $ref, $idRef, $refId){
-    return $this->joinOn($ref, $idRef, $refId, 'left');
+  public function leftJoinOn(array $ref, $tableAlias, $idRef, $refId){
+    return $this->joinOn($ref, $tableAlias, $idRef, $refId, 'left');
   }
   
   
@@ -430,6 +452,48 @@ class tableArray implements JsonSerializable{
   }
 
  /*
+  * get a array(key => Value)
+  * @return array
+  */  
+  public function fetchKeyValue($fieldNameKey, $fieldNameValue){
+    //ignore select
+    $selectKeys = array_keys(reset($this->data));
+    if(in_array($fieldNameKey, $selectKeys) AND
+       in_array($fieldNameValue, $selectKeys)) {
+         return array_column($this->data, $fieldNameValue, $fieldNameKey);    
+    }
+    return false;
+  }
+  
+ /*
+  * get the array as raw (ignore select)
+  * @return array
+  */  
+  public function fetchRaw(){
+    return $this->data;
+  }
+
+ /*
+  * @param string $groupName: a valid Fieldname (key)
+  * @return array of tabeles with $groupName as key
+  */  
+  public function fetchGroup($groupName){
+    //check if $group exists
+    if(!in_array($groupName, array_keys(reset($this->data)))){
+      $msg = "Unknown fieldname '$groupName' ".__METHOD__;
+      throw new \InvalidArgumentException($msg);
+    } 
+    if($this->selectKeys !== null AND !in_array($groupName,$this->selectKeys)){
+      $msg = "Field '$groupName' must be selected ".__METHOD__;
+      throw new \InvalidArgumentException($msg);
+    }
+    return $this->groupBySubarrayValue(
+      $this->getSelectData($this->data,$this->selectKeys),
+      $groupName
+    );    
+  }
+
+ /*
   * for JsonSerializable Interface
   * may use  json_encode($sqlArrObj)
   * return array 
@@ -454,29 +518,6 @@ class tableArray implements JsonSerializable{
     return $this;    
   }
   
-  
- /*
-  * get a array(key => Value)
-  * @return array
-  */  
-  public function fetchKeyValue($fieldNameKey, $fieldNameValue){
-    //ignore select
-    $selectKeys = array_keys(reset($this->data));
-    if(in_array($fieldNameKey, $selectKeys) AND
-       in_array($fieldNameValue, $selectKeys)) {
-         return array_column($this->data, $fieldNameValue, $fieldNameKey);    
-    }
-    return false;
-  }
-  
- /*
-  * get the array as raw (ignore select)
-  * @return array
-  */  
-  public function fetchRaw(){
-    return $this->data;
-  }
-
   //prepare sqlOrderTerm for sort-function
   protected function setSort($sqlOrderTerm = ""){
     $validFieldNames = array_keys(reset($this->data));
@@ -593,7 +634,7 @@ class tableArray implements JsonSerializable{
   * @return $this
   
   */
-  private function joinOn(array $ref, $idRef, $refId, $joinTyp = "inner"){
+  private function joinOn(array $ref, $tableAlias, $idRef, $refId, $joinTyp = "inner"){
     $firstRowRef = reset($ref);
     if(!array_key_exists($idRef, $firstRowRef)){
         $msg = "Unknown fieldname '$idRef' Referenz ".__METHOD__;
@@ -604,29 +645,30 @@ class tableArray implements JsonSerializable{
         $msg = "Unknown fieldname '$refId'  ".__METHOD__;
         throw new \InvalidArgumentException($msg);
     }
-    //all keys from 4ref not contain in data
-    $refAddKeys = array_keys(array_diff_key($firstRowRef,$firstRowData));
+    //all keys from $ref exclude 
+    $refAddKeys = array_keys(array_diff_key($firstRowRef,[$idRef => null]));
     $ref = array_column($ref,null,$idRef);
     foreach($this->data as $iData => $rowData){
       $curRefId = $rowData[$refId];
       if(array_key_exists($curRefId, $ref)){
         //ref exists -> add fields
         $refRow = $ref[$curRefId];
+        
         foreach($refAddKeys as $iRef) {
-          $this->data[$iData][$iRef] = $refRow[$iRef];
+          $this->data[$iData][$tableAlias.'.'.$iRef] = $refRow[$iRef];
         }
       }
       elseif($joinTyp == 'left') {
         //set elements null
         foreach($refAddKeys as $iRef) {
-          $this->data[$iData][$iRef] = null;
+          $this->data[$iData][$tableAlias.'.'.$iRef] = null;
         }
       }
       else {
         //delete data row for inner join
         unset($this->data[$iData]);
       }
-    }    
+    }
     return $this;
   }
 
@@ -715,12 +757,14 @@ class tableArray implements JsonSerializable{
  /*
   * process $this->selectKeys for $data
   */
-  protected function getSelectData(array $data){
+  protected function getSelectData(array $data, $selectKeys = null){
     if($data === []) return [];
     //select fields and sort cols
-    $selectKeys = $this->selectKeys;
-    if($selectKeys === null) { //All
-      $selectKeys = array_keys(reset($this->data));
+    if($selectKeys === null) {
+      $selectKeys = $this->selectKeys;
+      if($selectKeys === null) { //All
+        $selectKeys = array_keys(reset($this->data));
+      }
     }
     $fct = function($row) use($selectKeys) {
       $newRow = [];
@@ -731,5 +775,17 @@ class tableArray implements JsonSerializable{
     };
     return array_map($fct, $data);
   }
+  
+ /*
+  *
+  */
+  public function groupBySubarrayValue(array $input, $groupName){
+    $arr = [];
+    foreach($input as $key => $row){
+      $arr[$row[$groupName]][$key] = $row;
+    }
+    return $arr;    
+  }
+ 
   
 }
