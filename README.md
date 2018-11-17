@@ -61,6 +61,7 @@ var_dump($newData === $expected); //bool(true)
   * create
   * createFromJson
   * createFromXml
+  * createFromIterator
   * check
   
 #### Instance methods
@@ -80,8 +81,9 @@ var_dump($newData === $expected); //bool(true)
   * getSqlFunction
   * firstRowToKey
   * fetchAll
-  * fetchKeyValue
   * fetchAllObj
+  * fetchKeyValue
+  * fetchGroup
   * fetchRaw
   * fetchLimit
   
@@ -90,6 +92,7 @@ var_dump($newData === $expected); //bool(true)
   * LOWER(fieldName)
   * TRIM(fieldName[,'character_mask'])
   * FORMAT('format',fieldName[,fieldName])
+  * SCALE(fieldName,'factor'[,add[,format]])
   * DATEFORMAT('dateFormat',fieldName)
   * REPLACE('search','replace',fieldName)
   * SUBSTR(fieldName,'start'[,length])
@@ -97,7 +100,7 @@ var_dump($newData === $expected); //bool(true)
   * INTVAL(fieldName)
   * FLOATVAL(fieldName)
   
-### Demo and Test
+### Examples and Test
 
 http://jspit.de/check/phpcheck.class.tablearray.php
 
