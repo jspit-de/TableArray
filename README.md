@@ -1,7 +1,6 @@
 # tableArray 
 
-PHP array manipulation library for arrays with tables structure
-Compatible with PHP 5.6+, 7+
+PHP array manipulation library for arrays with tableslike structure
 
 ### Features
 
