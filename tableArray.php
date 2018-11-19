@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.4                                                             | 
-|  Date: 2018-11-16                                                         |
+|  Version: 1.5                                                             | 
+|  Date: 2018-11-19                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -15,7 +15,7 @@
 | FITNESS FOR A PARTICULAR PURPOSE.                                         |
 '---------------------------------------------------------------------------'
 */
-class tableArray implements JsonSerializable{
+class tableArray extends \ArrayIterator implements JsonSerializable{
   private $userFct = [];
   private $sqlSort = [];  //internal
   private $selectKeys = null;  //array with valid keys after SELECT, default null = All
@@ -28,14 +28,16 @@ class tableArray implements JsonSerializable{
  /*
   * @param mixed : table array or iterator
   */
-  public function __construct($data = []){
+  public function __construct($data = [[]]){
     if(is_array($data)){
       $this->data = $data;
     }
-    elseif(is_iterable($data)){
-      foreach($data as $row){
-        $this->data[] = $row;
-      }
+    elseif($data instanceof tableArray){
+      $this->data = $data->fetchAll();
+    }
+    //iterable?
+    elseif($data instanceof \Iterator){
+      $this->data = iterator_to_array($data);
     }
     else{
       $msg = "Parameter for ".__METHOD__." must be a array or iterable";
@@ -93,10 +95,10 @@ class tableArray implements JsonSerializable{
 
  /*
   * create a instance
-  * @param $data array : 2 dim array
+  * @param $data : 2 dim array, iterator or tableArray Instance
   * @return instance of tableArray
   */
-  public static function create(array $data = []){
+  public static function create($data = [[]]){
     return new static($data);
   }
 
@@ -129,12 +131,18 @@ class tableArray implements JsonSerializable{
     }
     return new static($array);
   }
-
-  public static function createFromIterator($iterator){
-    return new static($iterator);
+  
+ /*
+  * create from a numerical 1 dimensional array
+  */
+  public static function createFromOneDimArray($columnName, array $array){
+    $data = [];
+    foreach($array as $value){
+      $data[][$columnName] = $value;
+    }
+    return new static($data);    
   }
-  
-  
+
  /*
   * check if data is a array with table-structure
   * @param $data : array 
@@ -325,7 +333,7 @@ class tableArray implements JsonSerializable{
   * @param $refId name id Basis-Array
   * @return $this
   */
-  public function innerJoinOn(array $ref, $tableAlias, $idRef, $refId){
+  public function innerJoinOn($ref, $tableAlias, $idRef, $refId){
     return $this->joinOn($ref, $tableAlias, $idRef, $refId, 'inner');
   }
 
@@ -336,7 +344,7 @@ class tableArray implements JsonSerializable{
   * @param $refId name id Basis-Array
   * @return $this
   */
-  public function leftJoinOn(array $ref, $tableAlias, $idRef, $refId){
+  public function leftJoinOn($ref, $tableAlias, $idRef, $refId){
     return $this->joinOn($ref, $tableAlias, $idRef, $refId, 'left');
   }
   
@@ -464,6 +472,20 @@ class tableArray implements JsonSerializable{
     }
     return false;
   }
+
+ /*
+  * get 1 dimensional numerical array from column with fieldName
+  * @param string fieldname
+  * @return 1 dimensional numerical array or false if error
+  */  
+  public function fetchColumn($fieldName){
+    //ignore select
+    $selectKeys = array_keys(reset($this->data));
+    if(in_array($fieldName, $selectKeys)){
+         return array_column($this->data, $fieldName);    
+    }
+    return false;
+  }
   
  /*
   * get the array as raw (ignore select)
@@ -518,6 +540,35 @@ class tableArray implements JsonSerializable{
     return $this;    
   }
   
+ /*
+  * Iterator Methods
+  */
+    public function rewind() {
+      reset($this->data);
+    }
+
+    public function current() {
+      //return current($this->data);
+      return $this->getSelectRow(current($this->data));
+    }
+
+    public function key() {
+      return key($this->data);
+    }
+
+    public function next() {
+      return $this->getSelectRow(next($this->data));
+    }
+
+    public function valid() {
+      return $this->current() !== false;
+    }
+    
+    public function reset(){
+      return $this->getSelectRow(reset($this->data));  
+    }
+  
+  
   //prepare sqlOrderTerm for sort-function
   protected function setSort($sqlOrderTerm = ""){
     $validFieldNames = array_keys(reset($this->data));
@@ -539,7 +590,7 @@ class tableArray implements JsonSerializable{
         $sqlObjects[$i]->fpar = $parArr;
       }
       else {
-        //name or name as newname
+        //only name 
         if(!in_array($sqlObj->name,$validFieldNames)) {
           //error
           $msg = "Unknown Field-Name '".$sqlObj->name."' ".__METHOD__." near '".$sqlObj->term."'";
@@ -634,7 +685,10 @@ class tableArray implements JsonSerializable{
   * @return $this
   
   */
-  private function joinOn(array $ref, $tableAlias, $idRef, $refId, $joinTyp = "inner"){
+  private function joinOn($ref, $tableAlias, $idRef, $refId, $joinTyp = "inner"){
+    if($ref instanceof tableArray) {
+      $ref = $ref->fetchAll(); 
+    }
     $firstRowRef = reset($ref);
     if(!array_key_exists($idRef, $firstRowRef)){
         $msg = "Unknown fieldname '$idRef' Referenz ".__METHOD__;
@@ -775,6 +829,20 @@ class tableArray implements JsonSerializable{
     };
     return array_map($fct, $data);
   }
+
+  protected function getSelectRow($row){
+    if(empty($row)) return $row;
+    $selectKeys = $this->selectKeys;
+    if($selectKeys === null) { //All
+      return $row;
+    }
+    $newRow = [];
+    foreach($selectKeys as $selKey){
+      if(array_key_exists($selKey,$row)) $newRow[$selKey] = $row[$selKey];
+    }
+    return $newRow;
+  }
+  
   
  /*
   *
