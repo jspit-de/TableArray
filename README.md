@@ -4,7 +4,7 @@ PHP library for arrays with tableslike structure
 
 ### Features
 
-- Create from Array, JSON-String or XML
+- Create from Array, JSON-String, Iterator or XML
 - Methods for column selection, row filtering and sorting
 
 ### Usage
@@ -61,6 +61,7 @@ var_dump($newData === $expected); //bool(true)
   * createFromJson
   * createFromXml
   * createFromIterator
+  * createFromOneDimArray
   * check
   
 #### Instance methods
@@ -77,11 +78,13 @@ var_dump($newData === $expected); //bool(true)
   * flatten
   * addFlatKeys
   * addSqlFunction
+  * addSqlFunctionFromArray
   * getSqlFunction
   * firstRowToKey
   * fetchAll
   * fetchAllObj
   * fetchKeyValue
+  * fetchColumn
   * fetchGroup
   * fetchRaw
   * fetchLimit
