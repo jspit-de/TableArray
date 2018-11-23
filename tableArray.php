@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.5                                                             | 
-|  Date: 2018-11-19                                                         |
+|  Version: 1.51                                                            | 
+|  Date: 2018-11-22                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -486,6 +486,22 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
     }
     return false;
   }
+
+ /*
+  * get 1 dimensional unique numerical array from column with fieldName
+  * @param string fieldname
+  * @return 1 dimensional numerical array or false if error
+  */  
+  public function fetchColumnUnique($fieldName,$sort_flags = SORT_REGULAR){
+    $result = $this->fetchColumn($fieldName);
+    if(is_array($result)) {
+      $result = array_values(array_unique($result));
+      sort($result,$sort_flags);
+      return $result;
+    }
+    return false;    
+  }
+  
   
  /*
   * get the array as raw (ignore select)

@@ -85,6 +85,7 @@ var_dump($newData === $expected); //bool(true)
   * fetchAllObj
   * fetchKeyValue
   * fetchColumn
+  * fetchColumnUnique
   * fetchGroup
   * fetchRaw
   * fetchLimit
