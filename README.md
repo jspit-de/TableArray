@@ -56,6 +56,27 @@ $expected = [
 var_dump($newData === $expected); //bool(true)
 ```
 
+#### CSV Import example 
+
+```php
+require '/yourpath/tableArray.php';
+
+$csv = new SplFileObject('datei.csv');
+
+$csv->setFlags(SplFileObject::READ_CSV 
+  | SplFileObject::SKIP_EMPTY 
+  | SplFileObject::READ_AHEAD 
+  | SplFileObject::DROP_NEW_LINE
+);
+
+$tabArr = tableArray::create($csv)
+  //Using first row of CSV as the array keys
+  ->firstRowToKey()  
+  ->fetchAll()
+;
+```
+
+
 #### Static methods
   * create
   * createFromJson
