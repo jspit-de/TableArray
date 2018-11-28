@@ -81,7 +81,6 @@ $tabArr = tableArray::create($csv)
   * create
   * createFromJson
   * createFromXml
-  * createFromIterator
   * createFromOneDimArray
   * check
   
