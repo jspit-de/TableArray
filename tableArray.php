@@ -28,7 +28,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
  /*
   * @param mixed : table array or iterator
   */
-  public function __construct($data = [[]]){
+  public function __construct($data = [[]], array $keyPathToData = null){
     if(is_array($data)){
       $this->data = $data;
     }
@@ -43,6 +43,19 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
       $msg = "Parameter for ".__METHOD__." must be a array or iterable";
       throw new \InvalidArgumentException($msg);
     }
+    //optional parameter 2 : array with keys to table-array
+    if($keyPathToData !== null){
+      foreach($keyPathToData as $key){
+        if(array_key_exists($key, $this->data)) {
+          $this->data = $this->data[$key];
+        }
+        else {
+          $msg = "Parameter 2 for ".__METHOD__." must be a array with valid keys";
+          throw new \InvalidArgumentException($msg);
+        }  
+      }      
+    }
+
     $firstRow = reset($this->data);
     if(is_object($firstRow)){
       $firstRow = (array)$firstRow;
@@ -98,8 +111,8 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   * @param $data : 2 dim array, iterator or tableArray Instance
   * @return instance of tableArray
   */
-  public static function create($data = [[]]){
-    return new static($data);
+  public static function create($data = [[]],$keyPathToData = []){
+    return new static($data, $keyPathToData);
   }
 
  /*
@@ -107,8 +120,8 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   * @param $jsonStr : represents a 2-dimensional array
   * @return instance of tableArray
   */
-  public static function createFromJson($jsonStr){
-    return new static(json_decode($jsonStr, true));
+  public static function createFromJson($jsonStr, $keyPathToData = []){
+    return new static(json_decode($jsonStr, true),$keyPathToData);
   }
 
  /*
@@ -398,6 +411,18 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   }
   
  /*
+  * add Keys from data as new column
+  * @param string new Field Name 
+  * @return $this
+  */
+  public function addKeys($newFlieldName = "_key"){
+    foreach($this->data as $key => $row){
+      $this->data[$key][$newFlieldName] = $key;
+    }
+    return $this;    
+  }
+  
+ /*
   * flatten: flat all fields from row 
   */
   public function flatten($delimter = "."){
@@ -530,6 +555,18 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
       $groupName
     );    
   }
+  
+ /*
+  * get the field name (key) for given index
+  * @param integer $index 
+  * @return string field name or a array of fieldnames if index = null
+  * return false if index not exists
+  */
+  public function fieldNameRaw($index = null){
+    $keys = array_keys(reset($this->data));
+    if($index === null) return $keys;   
+    return array_key_exists($index,$keys) ? $keys[$index] : false;
+  }  
 
  /*
   * for JsonSerializable Interface

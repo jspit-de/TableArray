@@ -76,6 +76,34 @@ $tabArr = tableArray::create($csv)
 ;
 ```
 
+#### XML example
+ 
+```php
+$strXML = '<?xml version="1.0" encoding="utf-8"?>
+<Store>
+  <Hardware>
+    <Article Number="123754" Name="MX925" Typ="Printer">25</Article>
+    <Article Number="75356" Name="S6056" Typ="Monitor">60</Article>
+  </Hardware>
+</Store>';
+$xml = $xml = simplexml_load_string($strXML);
+
+$tabArr = tableArray::createFromXML($xml->Hardware->Article)
+  ->flatten()  //allows access to attributes
+  ->SELECT('@attributes.Number AS number,
+      @attributes.Name AS name,
+      @attributes.Typ AS typ,
+      0 AS stock')
+  ->orderBy('number')
+  ->fetchAll()
+;
+
+$expected = [
+  ['number' => "75356",'name' => "S6056",'typ' => "Monitor",'stock' => "60"],
+  ['number' => "123754",'name' => "MX925",'typ' => "Printer",'stock' => "25"]
+];
+var_dump($tabArr === $expected); //bool(true)
+```
 
 #### Static methods
   * create
@@ -97,10 +125,12 @@ $tabArr = tableArray::create($csv)
   * pivot
   * flatten
   * addFlatKeys
+  * addKeys
   * addSqlFunction
   * addSqlFunctionFromArray
   * getSqlFunction
   * firstRowToKey
+  * fieldNameRaw
   * fetchAll
   * fetchAllObj
   * fetchKeyValue
@@ -110,7 +140,7 @@ $tabArr = tableArray::create($csv)
   * fetchRaw
   * fetchLimit
   
-### Internal functions may be used by select and orderBy
+#### Internal functions may be used by select and orderBy
   * UPPER(fieldName)
   * LOWER(fieldName)
   * TRIM(fieldName[,'character_mask'])
@@ -122,6 +152,10 @@ $tabArr = tableArray::create($csv)
   * LIKE(fieldName,'likePattern')
   * INTVAL(fieldName)
   * FLOATVAL(fieldName)
+  
+#### Interface
+  * Iterator 
+  * JsonSerializable
   
 ### Examples and Test
 
