@@ -1,9 +1,9 @@
-<?php
+﻿<?php
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.51                                                            | 
-|  Date: 2018-11-22                                                         |
+|  Version: 1.52                                                            | 
+|  Date: 2018-12-02                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -234,7 +234,8 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
       throw new \InvalidArgumentException($msg);
     }
     //prepare and explode terms
-    $validFieldNames = array_keys(reset($this->data));
+    //$validFieldNames = array_keys(reset($this->data));
+    $firstDataRow = reset($this->data);
     $selectFileds = [];
     foreach($this->splitarg($colKeys) as $termObj){
       //termObj with ->name, ->as, ->fct, ->fpar, ->term
@@ -249,7 +250,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
         $parameters = [];
         foreach($parObjects as $parObj){
           $trimStr = trim($parObj->term,'\'"');
-          if($parObj->term == $trimStr AND !in_array($trimStr,$validFieldNames)){
+          if($parObj->term == $trimStr AND !array_key_exists($trimStr,$firstDataRow)){
             $msg = "Unknown Parameter-Fieldname '$trimStr' ".__METHOD__;
             throw new \InvalidArgumentException($msg);
           }
@@ -274,7 +275,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
         $validFieldNames[] = $nameAs; 
       }
       else {
-        if(in_array($termObj->name,$validFieldNames)) {
+        if(array_key_exists($termObj->name,$firstDataRow)) {
           $fieldName = $termObj->name;
           if($nameAs = $termObj->as){
             foreach($this->data as $keyData => $row){
@@ -317,6 +318,31 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   public function filterLikeIn($fieldName, $inList){
     return $this->filterLike($fieldName, $inList, false);
   }
+
+ /*
+  * filter all rows with field is unique from array
+  * @param $fieldName: key from a column
+  * @return $this
+  */  
+  public function filterUnique($fieldName){
+    if(!array_key_exists($fieldName, reset($this->data))){
+      $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
+      throw new \InvalidArgumentException($msg);
+    } 
+    $filterData = [];
+    $filterCol = [];
+    foreach($this->data as $key => $row){
+      if(in_array($row[$fieldName], $filterCol)) {
+        unset($this->data[$key]);
+      }
+      else {
+        $filterCol[] = $row[$fieldName];
+      }
+    }
+    $this->data = array_values($this->data);
+    return $this;
+  }
+
 
  /*
   * filter all rows if $callback returns true
@@ -490,9 +516,9 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   */  
   public function fetchKeyValue($fieldNameKey, $fieldNameValue){
     //ignore select
-    $selectKeys = array_keys(reset($this->data));
-    if(in_array($fieldNameKey, $selectKeys) AND
-       in_array($fieldNameValue, $selectKeys)) {
+    $firstDataRow = reset($this->data);
+    if(array_key_exists($fieldNameKey, $firstDataRow) AND
+      array_key_exists($fieldNameValue, $firstDataRow)) {
          return array_column($this->data, $fieldNameValue, $fieldNameKey);    
     }
     return false;
@@ -505,9 +531,8 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   */  
   public function fetchColumn($fieldName){
     //ignore select
-    $selectKeys = array_keys(reset($this->data));
-    if(in_array($fieldName, $selectKeys)){
-         return array_column($this->data, $fieldName);    
+    if(array_key_exists($fieldName, reset($this->data))){
+      return array_column($this->data, $fieldName);    
     }
     return false;
   }
@@ -542,7 +567,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   */  
   public function fetchGroup($groupName){
     //check if $group exists
-    if(!in_array($groupName, array_keys(reset($this->data)))){
+    if(!array_key_exists($groupName, reset($this->data))){
       $msg = "Unknown fieldname '$groupName' ".__METHOD__;
       throw new \InvalidArgumentException($msg);
     } 
@@ -624,7 +649,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   
   //prepare sqlOrderTerm for sort-function
   protected function setSort($sqlOrderTerm = ""){
-    $validFieldNames = array_keys(reset($this->data));
+    $firstDataRow = reset($this->data);
     $sqlObjects = $this->splitarg($sqlOrderTerm);
     
     foreach($sqlObjects as $i => $sqlObj){
@@ -644,7 +669,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
       }
       else {
         //only name 
-        if(!in_array($sqlObj->name,$validFieldNames)) {
+        if(!array_key_exists($sqlObj->name,$firstDataRow)) {
           //error
           $msg = "Unknown Field-Name '".$sqlObj->name."' ".__METHOD__." near '".$sqlObj->term."'";
           throw new \InvalidArgumentException($msg);
@@ -895,12 +920,11 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
     }
     return $newRow;
   }
-  
-  
+   
  /*
   *
   */
-  public function groupBySubarrayValue(array $input, $groupName){
+  protected function groupBySubarrayValue(array $input, $groupName){
     $arr = [];
     foreach($input as $key => $row){
       $arr[$row[$groupName]][$key] = $row;
@@ -908,5 +932,4 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
     return $arr;    
   }
  
-  
 }

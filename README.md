@@ -117,6 +117,7 @@ var_dump($tabArr === $expected); //bool(true)
   * filter
   * filterLikeAll
   * filterLikeIn
+  * filterUnique
   * orderBy
   * offset
   * limit
