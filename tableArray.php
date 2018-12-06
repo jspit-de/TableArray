@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.52                                                            | 
-|  Date: 2018-12-02                                                         |
+|  Version: 1.6                                                             | 
+|  Date: 2018-12-06                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -343,7 +343,77 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
     return $this;
   }
 
+ /*
+  * filterGroupMax 
+  * @param $maxFieldName: key from column for search Maximum
+  * @param $groups: array with fieldnames for groups
+  * @return $this
+  */  
+  public function filterGroupMax($maxFieldName, array $groups = []){
+    //check if fieldNames valid
+    $firsRow = reset($this->data);
+    $fields = $groups;
+    $fields[] = $maxFieldName;
+    foreach($fields as $fieldName){
+      if(!array_key_exists($fieldName, $firsRow)){
+        $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }
+    }
+    $newData = [];
+    foreach($this->data as $dKey => $row){
+      //create groupkey
+      $groupkey = "";
+      foreach($groups as $key) {
+        if($groupkey !== "") $groupkey .= "~|~";       
+        $groupkey .= $row[$key];
+      }
+      if(isset($newData[$groupkey]) 
+        AND $newData[$groupkey][$maxFieldName] >= $row[$maxFieldName]){
+          continue;
+      }
+      $newData[$groupkey] = $row; 
+    }
+    $this->data = array_values($newData);
+    return $this;
+  }
 
+ /*
+  * filterGroupMax 
+  * @param $maxFieldName: key from column for search Maximum
+  * @param $groups: array with fieldnames for groups
+  * @return $this
+  */  
+  public function filterGroupMin($maxFieldName, array $groups = []){
+    //check if fieldNames valid
+    $firsRow = reset($this->data);
+    $fields = $groups;
+    $fields[] = $maxFieldName;
+    foreach($fields as $fieldName){
+      if(!array_key_exists($fieldName, $firsRow)){
+        $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }
+    }
+    $newData = [];
+    foreach($this->data as $dKey => $row){
+      //create groupkey
+      $groupkey = "";
+      foreach($groups as $key) {
+        if($groupkey !== "") $groupkey .= "~|~";       
+        $groupkey .= $row[$key];
+      }
+      if(isset($newData[$groupkey]) 
+        AND $newData[$groupkey][$maxFieldName] <= $row[$maxFieldName]){
+          continue;
+      }
+      $newData[$groupkey] = $row; 
+    }
+    $this->data = array_values($newData);
+    return $this;
+  }
+  
+  
  /*
   * filter all rows if $callback returns true
   * @param $callback: userfunction with parameter $row
