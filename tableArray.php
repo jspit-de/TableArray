@@ -1,9 +1,9 @@
-﻿<?php
+<?php
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.6                                                             | 
-|  Date: 2018-12-06                                                         |
+|  Version: 1.61                                                            |
+|  Date: 2019-01-05                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -15,7 +15,7 @@
 | FITNESS FOR A PARTICULAR PURPOSE.                                         |
 '---------------------------------------------------------------------------'
 */
-class tableArray extends \ArrayIterator implements JsonSerializable{
+class tableArray extends \ArrayIterator implements \JsonSerializable{
   private $userFct = [];
   private $sqlSort = [];  //internal
   private $selectKeys = null;  //array with valid keys after SELECT, default null = All
@@ -23,6 +23,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   private $data = [];  //2.dim 
   
   const CHECK_DATA_DURING_CONSTRUCT = false;
+  const SEPARATOR = "\x02";
   
  
  /*
@@ -365,7 +366,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
       //create groupkey
       $groupkey = "";
       foreach($groups as $key) {
-        if($groupkey !== "") $groupkey .= "~|~";       
+        if($groupkey !== "") $groupkey .= self::SEPARATOR;       
         $groupkey .= $row[$key];
       }
       if(isset($newData[$groupkey]) 
@@ -400,7 +401,7 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
       //create groupkey
       $groupkey = "";
       foreach($groups as $key) {
-        if($groupkey !== "") $groupkey .= "~|~";       
+        if($groupkey !== "") $groupkey .= self::SEPARATOR;       
         $groupkey .= $row[$key];
       }
       if(isset($newData[$groupkey]) 
@@ -632,22 +633,33 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   }
 
  /*
-  * @param string $groupName: a valid Fieldname (key)
+  * @param array $groups: array of max. 2 valid Fieldnames (key)
   * @return array of tabeles with $groupName as key
   */  
-  public function fetchGroup($groupName){
+  public function fetchGroup(array $groups){
+    if(count($groups) == 0) {
+      throw new \InvalidArgumentException("No groups given");
+    }      
     //check if $group exists
-    if(!array_key_exists($groupName, reset($this->data))){
-      $msg = "Unknown fieldname '$groupName' ".__METHOD__;
-      throw new \InvalidArgumentException($msg);
-    } 
-    if($this->selectKeys !== null AND !in_array($groupName,$this->selectKeys)){
-      $msg = "Field '$groupName' must be selected ".__METHOD__;
-      throw new \InvalidArgumentException($msg);
+    $firstRow = reset($this->data);
+    foreach($groups as $groupName) {
+      if(!array_key_exists($groupName, $firstRow)){
+        $msg = "Unknown fieldname '$groupName' ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }
     }
+       
+    if($this->selectKeys !== null){  //check if all groups selected
+      $validGroups = array_intersect($groups, $this->selectKeys);
+      if($validGroups != $groups) {
+        $msg = "All groups must be selected ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }
+    }
+    
     return $this->groupBySubarrayValue(
       $this->getSelectData($this->data,$this->selectKeys),
-      $groupName
+      $groups
     );    
   }
   
@@ -992,13 +1004,29 @@ class tableArray extends \ArrayIterator implements JsonSerializable{
   }
    
  /*
-  *
+  * @param input array
+  * @param groups array with max. 3 fieldNames
+  * @return array multidimensional
   */
-  protected function groupBySubarrayValue(array $input, $groupName){
+  protected function groupBySubarrayValue(array $input, array $groups){
     $arr = [];
-    foreach($input as $key => $row){
-      $arr[$row[$groupName]][$key] = $row;
+    $groupCount = count($groups);
+    $group0 = $groups[0];
+    if($groupCount == 1) { 
+      foreach($input as $key => $row){
+        $arr[$row[$group0]][$key] = $row;
+      }
     }
+    elseif($groupCount == 2) {
+      foreach($input as $key => $row){
+        $arr[$row[$group0]][$row[$groups[1]]][$key] = $row;
+      }
+    }
+    else { //max 3 groups
+      foreach($input as $key => $row){
+        $arr[$row[$group0]][$row[$groups[1]]][$row[$groups[2]]][$key] = $row;
+      }
+    }  
     return $arr;    
   }
  
