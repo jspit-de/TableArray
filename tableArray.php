@@ -1,9 +1,9 @@
-<?php
+﻿<?php
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.61                                                            |
-|  Date: 2019-01-05                                                         |
+|  Version: 1.62                                                            |
+|  Date: 2019-02-08                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -141,7 +141,8 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
     //create a array
     $array = [];
     foreach($xml as $element) {
-      $array[] = json_decode(json_encode($element), true);
+      
+      $array[] = json_decode(str_replace("{}",'""',json_encode($element)), true);
     }
     return new static($array);
   }
@@ -904,7 +905,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
       if($value instanceof stdClass) $value = (array)$value;
       if(is_array($value)) {
         if(empty($value)) {
-          $result[$prefix.$key. $delimiter] = "";  //empty array
+          $result[$prefix.$key.$delimiter] = "";  //empty array
         } else {
           $result += $this->arrayFlatten($value, $delimiter, $prefix.$key.$delimiter);
         }
