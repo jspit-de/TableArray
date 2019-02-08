@@ -141,8 +141,9 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
     //create a array
     $array = [];
     foreach($xml as $element) {
-      
-      $array[] = json_decode(str_replace("{}",'""',json_encode($element)), true);
+      $json = json_encode($element);
+      $json = preg_replace('~(: *)\{\}~','$1""',$json);
+      $array[] = json_decode($json, true);
     }
     return new static($array);
   }
