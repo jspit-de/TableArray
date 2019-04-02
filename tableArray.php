@@ -1,9 +1,9 @@
-﻿<?php
+<?php
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.62                                                            |
-|  Date: 2019-02-08                                                         |
+|  Version: 1.65                                                            |
+|  Date: 2019-04-02                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -103,7 +103,14 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
           $val = sprintf($format, $val);
         }
         return $val;  
-      }
+      },
+      'NULLCOUNT' => function(){
+        $sum = 0;
+        foreach(func_get_args() as $arg){
+          $sum += (int)($arg === NULL);
+        }
+        return $sum;
+      },
     ];
   }
 
@@ -141,20 +148,39 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
     //create a array
     $array = [];
     foreach($xml as $element) {
-      $json = json_encode($element);
-      $json = preg_replace('~(: *)\{\}~','$1""',$json);
-      $array[] = json_decode($json, true);
+      
+      $array[] = json_decode(str_replace("{}",'""',json_encode($element)), true);
     }
     return new static($array);
   }
   
  /*
   * create from a numerical 1 dimensional array
+  * @param $columnName string or array with 2 column-names
+  * @param $array 1 dim array
   */
   public static function createFromOneDimArray($columnName, array $array){
+    $keyColName = NULL;
+    if(is_array($columnName)) {
+      if(count($columnName) == 2){
+        $keyColName = reset($columnName);
+        $valueColName = next($columnName);
+      }
+      else {
+        $valueColName = reset($columnName);  
+      }
+    }
+    else {
+      $valueColName = $columnName;
+    } 
     $data = [];
-    foreach($array as $value){
-      $data[][$columnName] = $value;
+    foreach($array as $key => $value){
+      $element = [];
+      if($keyColName !== NULL) {
+        $element[$keyColName] = $key;   
+      }
+      $element[$valueColName] = $value; 
+      $data[] = $element;
     }
     return new static($data);    
   }
@@ -760,8 +786,8 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
         }
       }
       //DESC ?
-      $sqlObjects[$i]->desc = (stripos("DESC",$sqlObj->rest) !== false);
-      $sqlObjects[$i]->flag = (stripos("NATURAL",$sqlObj->rest) !== false) ? "NATURAL" : "";
+      $sqlObjects[$i]->desc = (stripos($sqlObj->rest,"DESC") !== false);
+      $sqlObjects[$i]->flag = (stripos($sqlObj->rest,"NATURAL") !== false) ? "NATURAL" : "";
     }
     return $sqlObjects;
   }
