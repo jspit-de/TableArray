@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.65                                                            |
-|  Date: 2019-04-02                                                         |
+|  Version: 1.67                                                            |
+|  Date: 2019-04-03                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -37,7 +37,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
       $this->data = $data->fetchAll();
     }
     //iterable?
-    elseif($data instanceof \Iterator){
+    elseif($data instanceof \Traversable){
       $this->data = iterator_to_array($data);
     }
     else{
@@ -437,6 +437,43 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
           continue;
       }
       $newData[$groupkey] = $row; 
+    }
+    $this->data = array_values($newData);
+    return $this;
+  }
+
+ /*
+  * filterGroupSum 
+  * @param $sumFieldName: key from column for search Maximum
+  * @param $groups: array with fieldnames for groups
+  * @return $this
+  */  
+  public function filterGroupSum($sumFieldName, array $groups = []){
+    //check if fieldNames valid
+    $firsRow = reset($this->data);
+    $fields = $groups;
+    $fields[] = $sumFieldName;
+    foreach($fields as $fieldName){
+      if(!array_key_exists($fieldName, $firsRow)){
+        $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }
+    }
+    $newData = [];
+    foreach($this->data as $dKey => $row){
+      //create groupkey
+      $groupkey = "";
+      foreach($groups as $key) {
+        if($groupkey !== "") $groupkey .= self::SEPARATOR;       
+        $groupkey .= $row[$key];
+      }
+      if(!isset($newData[$groupkey])) {
+        $newData[$groupkey] = $row;
+        $newData[$groupkey][$sumFieldName] = 0;
+      }
+      if(is_numeric($row[$sumFieldName])) {
+        $newData[$groupkey][$sumFieldName] += $row[$sumFieldName];
+      }
     }
     $this->data = array_values($newData);
     return $this;
@@ -912,6 +949,11 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
       }
     }
     return $this;
+  }
+  
+  //change Class to continue method chaining 
+  public function toClass($class){
+    return new $class($this);
   }
 
   
