@@ -120,6 +120,7 @@ var_dump($tabArr === $expected); //bool(true)
   * filterUnique
   * filterGroupMin
   * filterGroupMax
+  * filterGroupSum
   * orderBy
   * offset
   * limit
