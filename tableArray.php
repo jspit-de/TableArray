@@ -3,7 +3,7 @@
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
 |  Version: 1.67                                                            |
-|  Date: 2019-04-03                                                         |
+|  Date: 2019-05-17                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -952,8 +952,19 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   }
   
   //change Class to continue method chaining 
-  public function toClass($class){
-    return new $class($this);
+  public function toClass(/*'className', ...args */){
+    $args = func_get_args();
+    $class = array_shift($args);
+    if(is_string($class)){
+      return new $class($this,...$args);
+    }
+    elseif(is_array($class)) {
+      $args = array_merge([$this],$args);
+      return call_user_func_array($class,$args);
+    }
+    else {
+      throw new \InvalidArgumentException('expect Classname as first Parameter');
+    }
   }
 
   
