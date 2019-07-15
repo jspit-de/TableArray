@@ -56,6 +56,28 @@ $expected = [
 var_dump($newData === $expected); //bool(true)
 ```
 
+#### Pivot Group example
+
+```php
+require '/yourpath/tableArray.php';
+
+$data = [ 
+  ['group' => 1, 'type' => 'A', 'value' => 'AA'],
+  ['group' => 2, 'type' => 'A', 'value' => 'BB'], 
+  ['group' => 1, 'type' => 'B', 'value' => 5],
+  ['group' => 2, 'type' => 'B', 'value' => 7], 
+]; 
+$newData = tableArray::create($data) 
+  ->pivot('group','value','type')
+  ->fetchAll();
+
+$expected = [
+  1 => ['group' => 1, 'value.A' => "AA", 'value.B' => 5 ],
+  2 => ['group' => 2, 'value.A' => "BB", 'value.B' => 7 ],
+];
+
+```
+
 #### CSV Import example 
 
 ```php
@@ -113,7 +135,7 @@ var_dump($tabArr === $expected); //bool(true)
   * check
   
 #### Instance methods
-  * select
+  * [select](#select)
   * filter
   * filterLikeAll
   * filterLikeIn
@@ -161,6 +183,37 @@ var_dump($tabArr === $expected); //bool(true)
   * Iterator 
   * JsonSerializable
   
+#### Class Methods
+
+##### select
+
+Select rows for a fetch
+  ->select('field1, field2,..') 
+  ->select('field1 as newName,..')
+  ->select('fct(field1) as newName,..)
+
+```php
+$data =[
+  ['id' => 1, 'article' => "pc1", 'price' => 1231.0],
+  ['id' => 1, 'article' => "pc2", 'price' => 471.5],
+];
+
+$newData = tableArray::create($data)
+  ->select("article as Name, FORMAT('%.2f€',price) as Euro")
+  ->fetchAll()
+;
+/* Result $newData
+[
+  ['Name' => "pc1", 'Euro' => "1231.00€"],
+  ['Name' => "pc2", 'Euro' => "471.50€",
+]
+*/
+```
+
+### Documentation
+
+http://jspit.de/tools/classdoc.php?class=tableArray
+ 
 ### Examples and Test
 
 http://jspit.de/check/phpcheck.class.tablearray.php
