@@ -2,8 +2,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 1.67                                                            |
-|  Date: 2019-05-17                                                         |
+|  Version: 1.76                                                            |
+|  Date: 2020-01-01                                                         |
 |  PHPVersion >= 5.6                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018 Peter Junk (alias jspit). All Rights Reserved.           |
@@ -15,7 +15,8 @@
 | FITNESS FOR A PARTICULAR PURPOSE.                                         |
 '---------------------------------------------------------------------------'
 */
-class tableArray extends \ArrayIterator implements \JsonSerializable{
+class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
+{
   private $userFct = [];
   private $sqlSort = [];  //internal
   private $selectKeys = null;  //array with valid keys after SELECT, default null = All
@@ -56,7 +57,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
         }  
       }      
     }
-
+    
     $firstRow = reset($this->data);
     if(is_object($firstRow)){
       $firstRow = (array)$firstRow;
@@ -64,6 +65,9 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
         $this->data[$i] = (array)$row;
       }
     }
+    //
+    $this->rectify();
+    
     if(self::CHECK_DATA_DURING_CONSTRUCT) {
       if(!self::check($this->data)) {
         $msg = "Parameter must be a table-array for ".__METHOD__;
@@ -71,7 +75,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
       }      
     }
     elseif(!is_array($firstRow)) {
-      $msg = "Parameter must a array with dimension 2".__METHOD__;
+      $msg = "Parameter must a array with dimension 2 ".__METHOD__;
       throw new \InvalidArgumentException($msg);
     }
         
@@ -156,33 +160,69 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   
  /*
   * create from a numerical 1 dimensional array
-  * @param $columnName string or array with 2 column-names
   * @param $array 1 dim array
+  * @param $delimiter delimiter for split rows
+  *   delimter one cher, handle as csv
+  *   delimiter 2-4 chars, handle with explode
+  *   delimter >= 5 chars use as regular expression
   */
-  public static function createFromOneDimArray($columnName, array $array){
-    $keyColName = NULL;
-    if(is_array($columnName)) {
-      if(count($columnName) == 2){
-        $keyColName = reset($columnName);
-        $valueColName = next($columnName);
+  public static function createFromOneDimArray(array $array, $delimiter = ""){
+    $data = [];
+    $lenDelim = strlen($delimiter);
+    $isDelimRegEx = $lenDelim >= 5 && @preg_match($delimiter, null) !== false;
+    $regExWithNamedGroups = $isDelimRegEx && preg_match("/\(\?P?[<']/",$delimiter) == 1;
+    foreach($array as $key => $value){
+      if($lenDelim == 0){
+        $data[] = [$key, $value];
+      }
+      elseif($lenDelim == 1) {
+        $data[] = str_getcsv($value, $delimiter);
+      }
+      elseif($lenDelim < 5) {
+        $data[] = explode($delimiter, $value);
+      }
+      elseif($isDelimRegEx){
+        //handle regex
+        if(preg_match($delimiter, $value, $match)){
+          $countMatch = count($match);
+          if($countMatch == 1) $row = [$key,$match[0]];
+          elseif($countMatch == 2) $row = [$key,$match[1]];
+          elseif($regExWithNamedGroups) {
+            $row = array_filter($match,'is_string',ARRAY_FILTER_USE_KEY);
+          }
+          else $row = array_slice($match,1);
+        }
+        else {
+          //error
+          $msg = "Wrong 2.Parameter '".$delimiter."' for ".__METHOD__;
+          throw new \InvalidArgumentException($msg);
+        }
+        $data[] = $row;        
       }
       else {
-        $valueColName = reset($columnName);  
-      }
-    }
-    else {
-      $valueColName = $columnName;
-    } 
-    $data = [];
-    foreach($array as $key => $value){
-      $element = [];
-      if($keyColName !== NULL) {
-        $element[$keyColName] = $key;   
-      }
-      $element[$valueColName] = $value; 
-      $data[] = $element;
+        //error
+        $msg = "Wrong 2.Parameter '".$delimiter."' for ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }      
     }
     return new static($data);    
+  }
+  
+ /*
+  * create from string how get from file
+  * @param string $input
+  * @param string $regExRow for split rows
+  * @param string $regExSplitLines for split lines
+  */
+  public static function createFromString($input, $regExRow = ',', $regExSplitLines = '/\R/' ){
+    $arr = @preg_split($regExSplitLines,$input,NULL,PREG_SPLIT_NO_EMPTY);
+    if(!is_array($arr)) $arr = explode($regExSplitLines); 
+    if(!is_array($arr)) {
+      //error
+      $msg = "Wrong 3.Parameter '".$regExSplitLines."' for ".__METHOD__;
+      throw new \InvalidArgumentException($msg);
+    }
+    return self::createFromOneDimArray($arr, $regExRow);
   }
 
  /*
@@ -350,22 +390,35 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
 
  /*
   * filter all rows with field is unique from array
-  * @param $fieldName: key from a column
+  * @param $fieldNames: array with fieldNames or null for all
   * @return $this
   */  
-  public function filterUnique($fieldName){
-    if(!array_key_exists($fieldName, reset($this->data))){
-      $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
-      throw new \InvalidArgumentException($msg);
-    } 
-    $filterData = [];
-    $filterCol = [];
-    foreach($this->data as $key => $row){
-      if(in_array($row[$fieldName], $filterCol)) {
-        unset($this->data[$key]);
+  public function filterUnique(array $fieldNames = null){
+    if($fieldNames === null){
+      //all fields
+      foreach($this->data as $key => $row){
+        $keyFound = array_search($row,$this->data);
+        if($keyFound != $key) {
+          unset($this->data[$key]);
+        }
       }
-      else {
-        $filterCol[] = $row[$fieldName];
+    }
+    else {
+      $invalidFieldName = $this->invalidFieldNames($fieldNames);
+      if($invalidFieldName){
+        $msg = "Unknown fieldname '$invalidFieldName' ".__METHOD__;
+        throw new \InvalidArgumentException($msg);
+      }
+      $filterCols = [];
+      $flipFields = array_flip($fieldNames);
+      foreach($this->data as $key => $row){
+        $fieldsFromRow = array_intersect_key($row,$flipFields);
+        if(in_array($fieldsFromRow, $filterCols)) {
+          unset($this->data[$key]);
+        }
+        else {
+          $filterCols[] = $fieldsFromRow;
+        }
       }
     }
     $this->data = array_values($this->data);
@@ -408,16 +461,16 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   }
 
  /*
-  * filterGroupMax 
-  * @param $maxFieldName: key from column for search Maximum
+  * filterGroupMin 
+  * @param $minFieldName: key from column for search Minimum
   * @param $groups: array with fieldnames for groups
   * @return $this
   */  
-  public function filterGroupMin($maxFieldName, array $groups = []){
+  public function filterGroupMin($minFieldName, array $groups = []){
     //check if fieldNames valid
     $firsRow = reset($this->data);
     $fields = $groups;
-    $fields[] = $maxFieldName;
+    $fields[] = $minFieldName;
     foreach($fields as $fieldName){
       if(!array_key_exists($fieldName, $firsRow)){
         $msg = "Unknown fieldname '$fieldName' ".__METHOD__;
@@ -433,7 +486,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
         $groupkey .= $row[$key];
       }
       if(isset($newData[$groupkey]) 
-        AND $newData[$groupkey][$maxFieldName] <= $row[$maxFieldName]){
+        AND $newData[$groupkey][$minFieldName] <= $row[$minFieldName]){
           continue;
       }
       $newData[$groupkey] = $row; 
@@ -444,7 +497,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
 
  /*
   * filterGroupSum 
-  * @param $sumFieldName: key from column for search Maximum
+  * @param $sumFieldName: key from column for Summe
   * @param $groups: array with fieldnames for groups
   * @return $this
   */  
@@ -483,11 +536,12 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
  /*
   * filter all rows if $callback returns true
   * @param $callback: userfunction with parameter $row
+  *   if returnvalue from $callback is false current row will delete
   * if $callback == null: remove all rows with a null value 
   * @return $this
   */  
   public function filter($callback = null){
-    if(empty($this->data)) return [];
+    if(empty($this->data)) return $this;
     foreach($this->data as $key => $row){
       if($callback === null){
         if(!in_array(null,$row)) continue;
@@ -500,6 +554,38 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
     $this->data = array_values($this->data);
     return $this;    
   }
+
+ /*
+  * walk over all rows
+  * @param $callback: userfunction with parameter $row, $key, $userParam
+  *   if returnvalue from $callback is false current row will delete
+  * if $callback == null: remove all rows with a null value 
+  * @return $this
+  */  
+  public function walk($callback, $userParam = null){
+    if(empty($this->data)) return $this;
+    foreach($this->data as $key => $row){
+      $newRow = $callback($row, $key, $userParam);
+      $this->data[$key] = $newRow;
+    }
+    return $this;    
+  }
+
+  /*
+  * transposes the array (switch rows and columns)
+  * @return $this
+  */  
+  public function transpose(){
+    $transArr = [];
+    foreach($this->data as $keyRow => $subArr) {
+      foreach($subArr as $keyCol => $value) {
+        $transArr[$keyCol][$keyRow] = $value;
+      }
+    }
+    $this->data = $transArr;
+    return $this;
+  }
+ 
   
  /*
   * inner Join On
@@ -532,18 +618,31 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   * @return $this
   */  
   public function pivot($group, $pivot, $case){
+    $this->data = $this->fetchAll();
+    $pivKeys = [];
+    foreach($this->data as $row){
+      $pivKeys[] = $pivot.'.'.$row[$case];
+    }
+    $piv = [];
+    foreach($pivKeys as $key){
+      $piv[$key] = null; 
+    }
     $newData = [];
     foreach($this->data as $row){
       $newData[$row[$group]][$group] = $row[$group];
       $pivKey = $pivot.'.'.$row[$case];
       $newData[$row[$group]][$pivKey] = $row[$pivot];
     }
+    foreach($newData as $key => $row){
+      $newData[$key] += $piv; 
+    }
     $this->data = $newData;
     return $this;
   }
  
  /*
-  * delete all rows < offset
+  * delete all rows < number
+  * @param integer number
   * @return $this
   */  
   public function offset($number){
@@ -558,18 +657,25 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   }
 
  /*
-  * delete all rows > limt
+  * delete all rows > number
+  * @param integer number
+  * for number <0 count from end
   * @return $this
   */  
   public function limit($number){
-    $i = 0;
-    foreach($this->data as $key => $row){
-      $i++;
-      if($i <= $number) continue;
-      unset($this->data[$key]);
+    if($number >= 0){
+      $i = 0;
+      foreach($this->data as $key => $row){
+        $i++;
+        if($i <= $number) continue;
+        unset($this->data[$key]);
+      }
+      $this->data = array_values($this->data);
+      return $this;
     }
-    $this->data = array_values($this->data);
-    return $this;
+    else {
+      return $this->offset($this->count()+$number);
+    }
   }
   
  /*
@@ -577,13 +683,36 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   * @param string new Field Name 
   * @return $this
   */
-  public function addKeys($newFlieldName = "_key"){
+  public function addKeys($newFieldName = "_key"){
     foreach($this->data as $key => $row){
-      $this->data[$key][$newFlieldName] = $key;
+      $this->data[$key][$newFieldName] = $key;
     }
     return $this;    
   }
-  
+
+  /*
+  * use a column as key for row
+  * the column must contain unique values for new keys
+  * @param string $fieldName
+  * @return $this
+  */
+  public function fieldAsKey($fieldName = "_key"){
+    if(!array_key_exists($fieldName, reset($this->data))){
+      //error
+      $msg = "Unknown Field-Name '".$fieldName."' ".__METHOD__;
+      throw new \InvalidArgumentException($msg);
+    }
+    foreach($this->data as $key => $row){
+      $newKey = $row[$fieldName];
+      unset($this->data[$key]);
+      if(array_key_exists($newKey, $this->data)) continue;
+      unset($row[$fieldName]);
+      $this->data[$newKey] = $row;
+    }
+    return $this;    
+  }
+ 
+
  /*
   * flatten: flat all fields from row 
   */
@@ -621,7 +750,24 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
     }
     return $this->getSelectData($data);
   }
-  
+
+  /*
+  * get limit elements from end
+  * @param: integer $limit > 0
+  * @return array
+  */  
+  public function fetchLimitFromEnd($limit = 1) {
+    $start = $this->count()-$limit;
+    $i = 0;
+    $data = [];
+    foreach($this->data as $row){
+      if($i++ < $start) continue;
+      $data[] = $row;
+    }
+    return $this->getSelectData($data);
+  }
+ 
+
  /*
   * get the array
   * @return array
@@ -750,6 +896,16 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   }
   
  /*
+  * for Countable Interface
+  * may use  count($sqlArrObj)
+  * @return integer 
+  */  
+  public function count(){
+    return iterator_count($this);
+  }
+
+  
+ /*
   * remove first row and use it for keys
   * @return $this
   */
@@ -792,6 +948,12 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
     public function reset(){
       return $this->getSelectRow(reset($this->data));  
     }
+    
+    /*
+    public function seek($no){
+      debug::write($no);
+    }
+    */
   
   
   //prepare sqlOrderTerm for sort-function
@@ -955,16 +1117,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
   public function toClass(/*'className', ...args */){
     $args = func_get_args();
     $class = array_shift($args);
-    if(is_string($class)){
-      return new $class($this,...$args);
-    }
-    elseif(is_array($class)) {
-      $args = array_merge([$this],$args);
-      return call_user_func_array($class,$args);
-    }
-    else {
-      throw new \InvalidArgumentException('expect Classname as first Parameter');
-    }
+    return new $class($this,...$args);
   }
 
   
@@ -995,6 +1148,19 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
       }
     }
     return $result;
+  }
+
+ /*
+  * return first fieldname if is invalid, false if nothing found
+  */
+  private function invalidFieldNames(array $fields){
+    $firstRow = reset($this->data);
+    foreach($fields as $fieldName){
+      if(!array_key_exists($fieldName, $firstRow)){
+        return $fieldName;
+      }
+    }
+    return false;
   }
 
  /*
@@ -1109,6 +1275,29 @@ class tableArray extends \ArrayIterator implements \JsonSerializable{
       }
     }  
     return $arr;    
+  }
+  
+  
+ /* 
+  * fills rows so that all have the same number of elements
+  * return true if array modify, other false
+  */
+  protected function rectify(){
+    $modify = false;
+    $maxColCount = 0;
+    foreach($this->data as $row){
+      $curCount = count($row);
+      if($curCount > $maxColCount) $maxColCount = $curCount;
+    }
+    //fill missing with null
+    foreach($this->data as $i => $row){
+      $curCount = count($row);
+      if($maxColCount > $curCount){
+        $modify = true;
+        $this->data[$i] = array_merge($row,array_fill(0,$maxColCount - $curCount, NULL));
+      }      
+    }
+    return $modify;
   }
  
 }
