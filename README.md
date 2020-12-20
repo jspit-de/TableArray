@@ -1,10 +1,10 @@
 # tableArray 
 
-PHP library for arrays with tableslike structure
+PHP library for arrays with tableslike structure (V2.0)
 
 ### Features
 
-- Create from Array, JSON-String, Iterator or XML
+- Create from Array, JSON-String, CSV-String, Iterator or XML
 - Methods for column selection, row filtering and sorting
 
 ### Usage
@@ -98,86 +98,94 @@ $tabArr = tableArray::create($csv)
 ;
 ```
 
-#### XML example
+#### Example filterGroupAggregate 
  
 ```php
-$strXML = '<?xml version="1.0" encoding="utf-8"?>
-<Store>
-  <Hardware>
-    <Article Number="123754" Name="MX925" Typ="Printer">25</Article>
-    <Article Number="75356" Name="S6056" Typ="Monitor">60</Article>
-  </Hardware>
-</Store>';
-$xml = $xml = simplexml_load_string($strXML);
+require '/yourpath/tableArray.php';
 
-$tabArr = tableArray::createFromXML($xml->Hardware->Article)
-  ->flatten()  //allows access to attributes
-  ->SELECT('@attributes.Number AS number,
-      @attributes.Name AS name,
-      @attributes.Typ AS typ,
-      0 AS stock')
-  ->orderBy('number')
-  ->fetchAll()
-;
-
-$expected = [
-  ['number' => "75356",'name' => "S6056",'typ' => "Monitor",'stock' => "60"],
-  ['number' => "123754",'name' => "MX925",'typ' => "Printer",'stock' => "25"]
+$data = [ 
+  ['id' => "1",'group' => 1, 'value' => 2, 'value2' => 3], 
+  ['id' => "2",'group' => 2, 'value' => 4, 'value2' => 7],
+  ['id' => "3",'group' => 1, 'value' => 1, 'value2' => 2], 
+  ['id' => "4",'group' => 2, 'value' => 6, 'value2' => 8],
 ];
-var_dump($tabArr === $expected); //bool(true)
+
+$newData = tableArray::create($data)
+  ->filterGroupAggregate(['value' => 'MAX', 'value2' => 'AVG'],['group'])
+  ->orderBy('value2 DESC')
+  ->fetchAll();
+
+$expected = [ 
+  ['id' => "4",'group' => 2, 'value' => 6, 'value2' => 7.5],
+  ['id' => "1",'group' => 1, 'value' => 2, 'value2' => 2.5], 
+];
+var_dump($newData === $expected);  //bool(true) 
 ```
 
-#### Static methods
-  * create
-  * createFromJson
-  * createFromXml
-  * createFromOneDimArray
-  * check
+#### Data input methods
+  * new tableArray ($dataArray,[$keyPathToData])
+  * create ($dataArray,[$keyPathToData])
+  * createFromJson ($jsonStr,[$keyPathToData])
+  * createFromXml ($xml, [$strXPath])
+  * createFromOneDimArray ($dataArray,[$delimiter])
+  * createFromString ($inputString, [$regExValues,[$regExSplitLines]])
+  * createFromGroupedArray($input, $keyArray)
   
-#### Instance methods
+#### General Working methods
   * [select](#select)
+  * [orderBy](#orderBy)
+  * innerJoinOn
+  * leftJoinOn
+  * flatten
+  * pivot
+  * offset
+  * limit
+
+#### Filter methods
   * filter
+  * filterEqual
   * filterLikeAll
   * filterLikeIn
   * filterUnique
-  * filterGroupMin
-  * filterGroupMax
-  * filterGroupSum
-  * orderBy
-  * offset
-  * limit
-  * innerJoinOn
-  * leftJoinOn
-  * pivot
-  * flatten
-  * addFlatKeys
-  * addKeys
-  * addSqlFunction
-  * addSqlFunctionFromArray
-  * getSqlFunction
-  * firstRowToKey
-  * fieldNameRaw
+  * filterGroupAggregate
+
+#### Methods to fetch the data
   * fetchAll
   * fetchAllObj
   * fetchKeyValue
   * fetchColumn
   * fetchColumnUnique
   * fetchGroup
+  * fetchRow
   * fetchRaw
   * fetchLimit
+
+#### Other methods
+  * addFlatKeys
+  * addKeys
+  * firstRowToKey
+  * addSqlFunction
+  * addSqlFunctionFromArray
+  * getSqlFunction
+  * fieldNameRaw
   
 #### Internal functions may be used by select and orderBy
+  * ABS(fieldName)
   * UPPER(fieldName)
+  * FIRSTUPPER(fieldName)
   * LOWER(fieldName)
   * TRIM(fieldName[,'character_mask'])
   * FORMAT('format',fieldName[,fieldName])
-  * SCALE(fieldName,'factor'[,add[,format]])
+  * SCALE(fieldName,'factor'[,'add'[,'format']])
   * DATEFORMAT('dateFormat',fieldName)
   * REPLACE('search','replace',fieldName)
-  * SUBSTR(fieldName,'start'[,length])
+  * SUBSTR(fieldName,'start'[,'length'])
   * LIKE(fieldName,'likePattern')
-  * INTVAL(fieldName)
-  * FLOATVAL(fieldName)
+  * INTVAL(fieldName,'basis')
+  * FLOATVAL(fieldName,['dec_point', 'thousands_sep'])
+  * NULLCOUNT(fieldName[,fieldName,..])
+  * CONCAT(fieldName[,fieldName,..])
+  * IMPLODE(arrayFieldName,['delimiter'])
   
 #### Interface
   * Iterator 
@@ -199,16 +207,24 @@ $data =[
 ];
 
 $newData = tableArray::create($data)
-  ->select("article as Name, FORMAT('%.2f€',price) as Euro")
+  ->select("article as Name, FORMAT('%.2fâ‚¬',price) as Euro")
   ->fetchAll()
 ;
 /* Result $newData
 [
-  ['Name' => "pc1", 'Euro' => "1231.00€"],
-  ['Name' => "pc2", 'Euro' => "471.50€",
+  ['Name' => "pc1", 'Euro' => "1231.00â‚¬"],
+  ['Name' => "pc2", 'Euro' => "471.50â‚¬",
 ]
 */
 ```
+
+##### orderBy
+
+Sorts the array by one or more columns in ascending or descending order.
+
+  ->orderBy('field1 [ASC|DESC][NATURAL], [field2..]') 
+
+  ->orderBy('fct(field1,[params]),[field|function..])
 
 ### Documentation
 
