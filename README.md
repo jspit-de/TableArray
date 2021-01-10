@@ -130,6 +130,7 @@ var_dump($newData === $expected);  //bool(true)
   * createFromOneDimArray ($dataArray,[$delimiter])
   * createFromString ($inputString, [$regExValues,[$regExSplitLines]])
   * createFromGroupedArray($input, $keyArray)
+  * createFromCsvFile([$file])
   
 #### General Working methods
   * [select](#select)
@@ -140,6 +141,7 @@ var_dump($newData === $expected);  //bool(true)
   * pivot
   * offset
   * limit
+  * transpose
 
 #### Filter methods
   * filter
@@ -152,6 +154,8 @@ var_dump($newData === $expected);  //bool(true)
 #### Methods to fetch the data
   * fetchAll
   * fetchAllObj
+  * fetchAllAsJson
+  * fetchAllAsCSV
   * fetchKeyValue
   * fetchColumn
   * fetchColumnUnique
@@ -159,15 +163,24 @@ var_dump($newData === $expected);  //bool(true)
   * fetchRow
   * fetchRaw
   * fetchLimit
+  * fetchLimitFromEnd
 
 #### Other methods
   * addFlatKeys
   * addKeys
+  * fieldAsKey
   * firstRowToKey
   * addSqlFunction
   * addSqlFunctionFromArray
   * getSqlFunction
   * fieldNameRaw
+  * setOption
+  * getOption
+  * setCsvDefaultOptions($options)
+  * check($data)
+  * unGroup($array, $keys)
+  * count
+  * toClass
   
 #### Internal functions may be used by select and orderBy
   * ABS(fieldName)
