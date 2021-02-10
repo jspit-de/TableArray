@@ -2,11 +2,11 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 2.0                                                            |
-|  Date: 2020-12-15                                                         |
-|  PHPVersion >= 5.6                                                        |
+|  Version: 2.1                                                             |
+|  Date: 2021-01-31                                                         |
+|  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
-| Copyright © 2018..2020 Peter Junk (alias jspit). All Rights Reserved.     |
+| Copyright © 2018..2021 Peter Junk (alias jspit). All Rights Reserved.     |
 | ------------------------------------------------------------------------- |
 |   License: Distributed under the Lesser General Public License (LGPL)     |
 |            http://www.gnu.org/copyleft/lesser.html                        |
@@ -23,13 +23,26 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   private static $arr2d;  //use from unGroup
 
   private $data = [];  //2.dim 
+
+  protected static $csvDefaultOptions = [ 
+    "file" => "",
+    "bom" => true,
+    "title" => false,
+    "delimiter" => ',',
+    "enclosure" => '"',
+    "escape" => "\\",
+  ];
+
+  private $csvOptions;
   
   const CHECK_DATA_DURING_CONSTRUCT = false;
   const SEPARATOR = "\x02";
+  const BOM = "\xef\xbb\xbf";
   
  
  /*
   * @param mixed : table array or iterator
+  * @param mixed : $keyPathToData string or array
   */
   public function __construct($data = [[]], $keyPathToData = null){
     if(is_array($data)){
@@ -93,7 +106,11 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       },
       'FORMAT' => 'sprintf',  //par: 'format',field,[field]
       'DATEFORMAT' => function($format,$date){
-        if(is_string($date)) $date = date_create($date);
+        if(is_numeric($date)){
+          //Timestamp
+          $date = date_create()->setTimestamp($date);
+        }
+        elseif(is_string($date)) $date = date_create($date);
         if($date instanceOf DateTime) {
           return $date->format($format);
         }
@@ -143,12 +160,19 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
         );
         return trim($s,$delim);
       },
+      'SPLIT' => function($val,$delim = ' ',$number = 0){
+        $parts = explode($delim, $val);
+        return array_key_exists($number, $parts) ? $parts[$number] : "";
+      }
     ];
+    //csv options
+     $this->csvOptions = self::$csvDefaultOptions;
   }
 
  /*
   * create a instance
   * @param $data : 2 dim array, iterator or tableArray Instance
+  * @param mixed : $keyPathToData string or array
   * @return instance of tableArray
   */
   public static function create($data = [[]],$keyPathToData = null){
@@ -158,6 +182,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
  /*
   * create a instance from JSON-String
   * @param $jsonStr : represents a 2-dimensional array
+  * @param mixed : $keyPathToData string or array
   * @return instance of tableArray
   */
   public static function createFromJson($jsonStr, $keyPathToData = null){
@@ -177,6 +202,10 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     if(!is_object($xml)) {
       $msg = "Parameter must be a valid XML for ".__METHOD__;
       throw new \InvalidArgumentException($msg);
+    }
+    //register Namespaces
+    foreach($xml->getDocNamespaces(TRUE) as $shortcut=>$namespace){
+      $ok = $xml->registerXPathNamespace($shortcut,$namespace );
     }
     //handle xPath
     if(!empty($strXPath)) {
@@ -198,7 +227,7 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * create from a numerical 1 dimensional array
   * @param $array 1 dim array
   * @param $delimiter delimiter for split rows
-  *   delimter one cher, handle as csv
+  *   delimter one char, handle as csv
   *   delimiter 2-4 chars, handle with explode
   *   delimter >= 5 chars use as regular expression e.g '/^(\d+) (\d+):(\d+):(\d+)/'
   *   delimter >= 5 chars and regular expression after s use preg_split
@@ -223,7 +252,10 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
         $data[] = [$key, $value];
       }
       elseif($lenDelim == 1) {
-        $data[] = str_getcsv($value, $delimiter);
+        //csv
+        $option = self::$csvDefaultOptions;
+        $delimiter = $delimiter ?: $option['delimiter'];
+        $data[] = str_getcsv($value, $delimiter, $option['enclosure'], $option['escape']);
       }
       elseif($lenDelim < 5) {
         $data[] = explode($delimiter, $value);
@@ -276,6 +308,39 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   }
 
  /*
+  * create from string how get from file
+  * @param string $file Filename or Wrapper
+  * @return object
+  * csv options must set with tableArray::setCsvDefaultOptions
+  */
+  public static function createFromCsvFile($file = null){
+    $file = $file ?: self::$csvDefaultOptions['file'];
+    $del = self::$csvDefaultOptions['delimiter'];
+    $enc = self::$csvDefaultOptions['enclosure'];
+    $esc = self::$csvDefaultOptions['escape']; 
+
+    if($fp = @fopen($file,'r')){
+      $data = [];
+      while (($row = fgetcsv($fp,0,$del,$enc,$esc)) !== FALSE) {
+        $data[] = $row;
+      }
+      fclose($fp);
+    }
+    else{
+      //error fopen
+      $errors = error_get_last();
+      error_clear_last();
+      throw new \InvalidArgumentException($errors['message']);
+    }
+    $data[0][0] = str_replace(self::BOM,"",$data[0][0]);
+    $objTableArray = new static($data);
+    if(self::$csvDefaultOptions['title']){
+      $objTableArray->firstRowToKey();
+    }
+    return $objTableArray;
+  }
+
+ /*
   * create from grouped json-string or grouped array
   * @param string $input
   * @param array $keys : array of names for groupkeys
@@ -291,6 +356,20 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     }
     return new static(self::unGroup($input, $keys));
   }
+
+ /*
+  * set default options for CSV
+  * @param array options
+  * @return true if ok, false if error
+  */ 
+  public static function setCsvDefaultOptions(array $options) {
+    if($options == array_intersect_key($options, self::$csvDefaultOptions)){
+      self::$csvDefaultOptions = array_merge(self::$csvDefaultOptions,$options);
+      return true;
+    }
+    return false;
+  }
+
 
  /*
   * clone self
@@ -891,11 +970,56 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
 
  /*
   * get array as JSON-String
+  * @param int $jsonOptions
   * @return string
   */  
   public function fetchAllAsJson($jsonOptions = 0){
     return json_encode($this->fetchAll(), $jsonOptions);
   }
+
+ /*
+  * get array as CSV-String or save as csv-file
+  * @param string $fileName or "" 
+  * @return string or true/false if fileName used
+  */  
+  public function fetchAllAsCSV($fileName = ""){
+    $option = $this->csvOptions;
+    if($fileName == "") $fileName = $option["file"];
+    $file = $fileName ?: 'php://memory';
+    $fp = @fopen($file, 'w+');
+    if($fp){
+      if($option["bom"]) {
+        fwrite($fp,self::BOM);  
+      }
+      $setTitle = $option['title'];
+      foreach($this->fetchAll() as $row){
+        if($setTitle){
+          $title = array_keys($row);
+          fputcsv($fp, $title, $option['delimiter'], $option['enclosure'], $option['escape']);
+          $setTitle = false; 
+        }
+        fputcsv($fp, $row, $option['delimiter'], $option['enclosure'], $option['escape']); 
+      }
+      if($fileName){
+        //save as file
+        $ret = true;
+      }
+      else {
+        //return as string
+        rewind($fp);
+        $ret = stream_get_contents($fp);
+      }
+      fclose($fp);
+      return $ret;
+    }
+    else {
+      //error
+      $errors = error_get_last();
+      error_clear_last();
+      throw new \InvalidArgumentException($errors['message']);
+    }
+  }
+
 
  /*
   * get a array(key => Value)
@@ -992,7 +1116,29 @@ class tableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       $groups
     );    
   }
-  
+
+ /*
+  * set csv options
+  * @param array option
+  * @return $this
+  */
+  public function setOption(array $options = []){
+    if($options == array_intersect_key($options, $this->csvOptions)){
+      $this->csvOptions = array_merge($this->csvOptions, $options);
+      return $this;
+    }
+    //Error
+    throw new \InvalidArgumentException("incorrect option");
+  }
+
+ /*
+  * get options array
+  * @return array
+  */
+  public function getOption(){
+    return $this->csvOptions;
+  }
+
  /*
   * get the field name (key) for given index
   * @param integer $index 
