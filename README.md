@@ -1,4 +1,4 @@
-# tableArray 
+# TableArray 
 
 PHP library for arrays with tableslike structure (V2.0)
 
@@ -12,13 +12,13 @@ PHP library for arrays with tableslike structure (V2.0)
 #### Simple example 1
 
 ```php
-require '/yourpath/tableArray.php';
+require '/yourpath/TableArray.php';
 
 $data = [ 
   ['id' => 1, 'val' => 23.333333333], 
   ['id' => 2, 'val' => 13.7777777777], 
 ]; 
-$newData = tableArray::create($data) 
+$newData = TableArray::create($data) 
   ->select('id, FORMAT("%6.2f",val) as rval') 
   ->orderBy('val ASC')
   ->fetchAll(); 
@@ -33,7 +33,7 @@ var_dump($newData == $expected); //bool(true)
 #### Simple example 2
 
 ```php
-require '/yourpath/tableArray.php';
+require '/yourpath/TableArray.php';
 
 $data = [ 
   ['name' => 'A1', 'likes' => 3], 
@@ -42,7 +42,7 @@ $data = [
   ['name' => 'A14','likes' => 7], 
 ];
  
-$newData = tableArray::create($data)
+$newData = TableArray::create($data)
   ->select('name AS class, likes') 
   ->orderBy('name ASC NATURAL') 
   ->fetchAll();
@@ -59,7 +59,7 @@ var_dump($newData === $expected); //bool(true)
 #### Pivot Group example
 
 ```php
-require '/yourpath/tableArray.php';
+require '/yourpath/TableArray.php';
 
 $data = [ 
   ['group' => 1, 'type' => 'A', 'value' => 'AA'],
@@ -67,7 +67,7 @@ $data = [
   ['group' => 1, 'type' => 'B', 'value' => 5],
   ['group' => 2, 'type' => 'B', 'value' => 7], 
 ]; 
-$newData = tableArray::create($data) 
+$newData = TableArray::create($data) 
   ->pivot('group','value','type')
   ->fetchAll();
 
@@ -81,7 +81,7 @@ $expected = [
 #### CSV Import example 
 
 ```php
-require '/yourpath/tableArray.php';
+require '/yourpath/TableArray.php';
 
 $csv = new SplFileObject('datei.csv');
 
@@ -91,7 +91,7 @@ $csv->setFlags(SplFileObject::READ_CSV
   | SplFileObject::DROP_NEW_LINE
 );
 
-$tabArr = tableArray::create($csv)
+$tabArr = TableArray::create($csv)
   //Using first row of CSV as the array keys
   ->firstRowToKey()  
   ->fetchAll()
@@ -101,7 +101,7 @@ $tabArr = tableArray::create($csv)
 #### Example filterGroupAggregate 
  
 ```php
-require '/yourpath/tableArray.php';
+require '/yourpath/TableArray.php';
 
 $data = [ 
   ['id' => "1",'group' => 1, 'value' => 2, 'value2' => 3], 
@@ -110,7 +110,7 @@ $data = [
   ['id' => "4",'group' => 2, 'value' => 6, 'value2' => 8],
 ];
 
-$newData = tableArray::create($data)
+$newData = TableArray::create($data)
   ->filterGroupAggregate(['value' => 'MAX', 'value2' => 'AVG'],['group'])
   ->orderBy('value2 DESC')
   ->fetchAll();
@@ -123,7 +123,7 @@ var_dump($newData === $expected);  //bool(true)
 ```
 
 #### Data input methods
-  * new tableArray ($dataArray,[$keyPathToData])
+  * new TableArray ($dataArray,[$keyPathToData])
   * create ($dataArray,[$keyPathToData])
   * createFromJson ($jsonStr,[$keyPathToData])
   * createFromXml ($xml, [$strXPath])
@@ -219,7 +219,7 @@ $data =[
   ['id' => 1, 'article' => "pc2", 'price' => 471.5],
 ];
 
-$newData = tableArray::create($data)
+$newData = TableArray::create($data)
   ->select("article as Name, FORMAT('%.2f€',price) as Euro")
   ->fetchAll()
 ;
