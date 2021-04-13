@@ -241,7 +241,7 @@ Sorts the array by one or more columns in ascending or descending order.
 
 ### Documentation
 
-http://jspit.de/tools/classdoc.php?class=tableArray
+http://jspit.de/tools/classdoc.php?class=TableArray
  
 ### Examples and Test
 
