@@ -4,8 +4,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 2.2                                                             |
-|  Date: 2021-04-10                                                         |
+|  Version: 2.3                                                             |
+|  Date: 2021-06-22                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2021 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -46,7 +46,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @param mixed : table array or iterator
   * @param mixed : $keyPathToData string or array
   */
-  public function __construct($data = [[]], $keyPathToData = null){
+  final public function __construct($data = [[]], $keyPathToData = null){
     if(is_array($data)){
       $this->data = $data;
     }
@@ -84,12 +84,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
         $this->data[$i] = (array)$row;
       }
     }
-    //
-    if(!$this->rectify()){
-      $msg = "Parameter must a array with dimension 2 ".__METHOD__;
-      throw new \InvalidArgumentException($msg);
-    }
-        
+            
     mb_internal_encoding("UTF-8");
     $this->userFct = [
       'ABS' => 'abs',
@@ -169,8 +164,8 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @param mixed : $keyPathToData string or array
   * @return instance of tableArray
   */
-  public static function create($data = [[]],$keyPathToData = null){
-    return new static($data, $keyPathToData);
+  public static function create($data = [[]],$keyPathToData = null,...$addpar){
+    return new static($data, $keyPathToData,...$addpar);
   }
 
  /*
@@ -180,6 +175,8 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return instance of tableArray
   */
   public static function createFromJson($jsonStr, $keyPathToData = null){
+    //remove annoying characters how BOM from start + end
+    $jsonStr = preg_replace(['~^[^\[\{]+~u',"~[^\]\}]+$~u"],'',$jsonStr);
     return new static(json_decode($jsonStr, true),$keyPathToData);
   }
 
@@ -234,10 +231,10 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     if($lenDelim >= 5){
       //check regex
       if(substr($delimiter,0,1) == "s"){
-        $isDelimRegExSplit = @preg_match(substr($delimiter,1), null) !== false;
+        $isDelimRegExSplit = @preg_match(substr($delimiter,1), '') !== false;
       }
       else {
-        $isDelimRegEx =  @preg_match($delimiter, null) !== false;
+        $isDelimRegEx =  @preg_match($delimiter, '') !== false;
         $regExWithNamedGroups = $isDelimRegEx && preg_match("/\(\?P?[<']/",$delimiter) == 1;
       }
     }
@@ -417,7 +414,18 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     return self::groupedTo2D($array, $keys, []);
   }
 
-
+ /**
+  * match strings with wildcards * and ?
+  * @param string $pattern : String with wildcards how '*.2.?'
+  * @param string $string : string how 'a.1.2.c'
+  * @return bool
+  */
+  public static function wildcardMatch($pattern, $string){
+    $pattern = preg_quote($pattern,'/');        
+    $pattern = str_replace( ['\*','\?'] , ['.*','.'], $pattern);   
+    return (bool)preg_match( '/^' . $pattern . '$/' , $string );
+  }
+  
  /*
   * add a userfuction (closure)
   * @param string $name
@@ -475,7 +483,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     }
     //validate
     if(strpbrk($colKeys,";|+<>=*/") !== false){
-      $msg = "forbidden char in '$key' ".__METHOD__;
+      $msg = "forbidden char in '($colKeys' ".__METHOD__;
       throw new \InvalidArgumentException($msg);
     }
     //prepare and explode terms
@@ -781,7 +789,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
 
  /**
   * merge array
-  * @param $data : 2 dim array, iterator or tableArray Instance
+  * @param mixed $data : 2 dim array, iterator or tableArray Instance
   * @return $this
   * @throw errors
   */
@@ -793,7 +801,49 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       throw $e;
     }
     $this->data = array_merge_recursive($this->data, $dataArr);
-    $this->rectify();
+    $this->mk_rectify();
+    return $this;
+  }
+
+ /**
+  * rectify: realizes uniform keys in all rows by adding missing keys
+  * @return $this
+  */
+  public function rectify() {
+    if(!$this->mk_rectify()){
+      $msg = "array structure need minimal dimension 2 ".__METHOD__;
+      throw new \InvalidArgumentException($msg);
+    }
+    return $this;
+  }
+
+  /**
+  * Get all child-arrays with keys defined in array of keyPatterns
+  * @param array $keyPatterns : array with flatten keys with wildcards * and ?
+  * @return $this
+  */
+  public function collectChilds(array $keyPatterns){
+    $iterator =  new RecursiveIteratorIterator(
+      new RecursiveArrayIterator($this->data),RecursiveIteratorIterator::SELF_FIRST
+    );
+    $this->data = [];
+    foreach($iterator as $subarr){
+      if(is_array($subarr)){
+        $countConditions = count($keyPatterns);
+        foreach($keyPatterns as $keyPattern){
+          $arrFlatKeys = array_keys($this->arrayFlatten($subarr,"."));
+          foreach($arrFlatKeys as $flatKey){
+            if(self::wildcardMatch($keyPattern, $flatKey)) {
+              --$countConditions;
+              break;
+            }
+          }
+        }
+        if($countConditions === 0) {
+          $this->data[] = $subarr;
+        }  
+      }
+    }
     return $this;
   }
    
@@ -1170,7 +1220,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
  /**
   * get the field name (key) for given index
   * @param integer $index 
-  * @return string field name or a array of fieldnames if index = null
+  * @return mixed field name (string) or a array of fieldnames if index = null
   * return false if index not exists
   */
   public function fieldNameRaw($index = null){
@@ -1238,6 +1288,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       return key($this->data);
     }
 
+   /**
+    * @return mixed 
+    */
     public function next() {
       return $this->getSelectRow(next($this->data));
     }
@@ -1267,7 +1320,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       //$sqlObj->fpar, $sqlObj->term, $sqlObj->rest
       if($sqlObj->fct){
         if(!array_key_exists($sqlObj->fct,$this->userFct)) {
-          $msg = "Unknown Function  '".$match['function']."' ".__METHOD__;
+          $msg = "Unknown Function  '".$sqlObj->fct."' ".__METHOD__;
           throw new \InvalidArgumentException($msg);
         }
         //$sqlObj->fpar as array
@@ -1293,6 +1346,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   }
  
   protected function sortFunction($a,$b){
+    $cmp = 0;
     foreach($this->sqlSort as $sortInfo){
       $cmp = 0;
       if($sortInfo->fct) {
@@ -1346,6 +1400,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     if(is_string($inList)) {
       $inList = explode(',',$inList);
     }
+    $cmp = false;
     foreach($this->data as $key => $row){
       $fieldValue = $row[$fieldName];
       foreach($inList as $like){
@@ -1426,7 +1481,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     }
   }
   
-  //
+ /*
+  * ["a" => ["b" => 4]] -> ['a.b' => 4]
+  */
   private function arrayFlatten(array $array, $delimiter = '.',$prefix = '') {
     $result = array();
     foreach($array as $key=>$value) {
@@ -1579,9 +1636,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     
  /* 
   * fills rows so that all have the same number of elements
-  * return true if array modify, other false
+  * return true if ok, other false
   */
-  protected function rectify(){
+  protected function mk_rectify(){
     $rowKeys = self::allRowKeys($this->data);
     if($rowKeys === false) return false;
     $nullRow = array_fill_keys($rowKeys, null);
