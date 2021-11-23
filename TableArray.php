@@ -4,8 +4,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 2.3                                                             |
-|  Date: 2021-06-22                                                         |
+|  Version: 2.4                                                             |
+|  Date: 2021-11-22                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2021 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -638,7 +638,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     //check if $aggFields and $groups valid
     $firstRow = reset($this->data);
     $fileldsFirstRow = array_keys($firstRow);
-    $validAggFunctions = ['min','max','sum','avg','count','concat'];
+    $validAggFunctions = ['min','max','sum','avg','count','concat','array','json'];
 
     $aggFields = [];
     foreach($aggregates as $aggFieldName => $aggFunction){
@@ -677,6 +677,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
           if($aggFunction == 'min' OR $aggFunction == 'max') 
             $startValue = $row[$aggFieldName];
           elseif($aggFunction == 'concat') $startValue = "";
+          elseif($aggFunction == 'array' OR $aggFunction == 'json') $startValue = [];
           $newData[$groupkey][$aggFieldName] = $startValue;
           if($aggFunction == 'avg') {
             $newData[$groupkey][$aggFieldName.self::SEPARATOR.'count'] = 0;
@@ -715,6 +716,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
           $curDelim = $newData[$groupkey][$aggFieldName] !== "" ? $delim : "";
           $newData[$groupkey][$aggFieldName] .= $curDelim.$row[$aggFieldName];
         }
+        elseif($aggFunction == 'array' OR $aggFunction == 'json') {
+          $newData[$groupkey][$aggFieldName][] = $row[$aggFieldName];
+        }
       }
     }
     //final handling AVG = sum/count 
@@ -726,6 +730,12 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
           $newData[$keyRow][$aggFieldName] = ($count > 0) ? $row[$aggFieldName]/$count : 0.0;
         }
       }
+      if($aggFunction == 'json'){
+        foreach($newData as $keyRow => $row){
+          $newData[$keyRow][$aggFieldName] = json_encode($row[$aggFieldName]);
+        }
+      }
+
     }
     $this->data = array_values($newData);
     return $this;
