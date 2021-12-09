@@ -1,6 +1,6 @@
 # TableArray 
 
-PHP library for arrays with tableslike structure (V2.0)
+PHP library for arrays with tableslike structure (V2.5)
 
 ### Features
 
@@ -138,10 +138,12 @@ var_dump($newData === $expected);  //bool(true)
   * innerJoinOn
   * leftJoinOn
   * flatten
+  * merge
   * pivot
   * offset
   * limit
   * transpose
+  * collectChilds
 
 #### Filter methods
   * filter
@@ -199,6 +201,7 @@ var_dump($newData === $expected);  //bool(true)
   * NULLCOUNT(fieldName[,fieldName,..])
   * CONCAT(fieldName[,fieldName,..])
   * IMPLODE(arrayFieldName,['delimiter'])
+  * SPLIT(fieldName[,'delimiter'[,'number']])
   
 #### Interface
   * Iterator 
@@ -241,7 +244,7 @@ Sorts the array by one or more columns in ascending or descending order.
 
 ### Documentation
 
-http://jspit.de/tools/classdoc.php?class=TableArray
+http://jspit.de/tools/classdoc.php?class=tableArray
  
 ### Examples and Test
 

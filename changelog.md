@@ -1,15 +1,25 @@
 # tableArray
 
+## Version 2.5 (2021-12-09)
+* Modify method collectChilds, optional with flatkeys
+* Methods filterLikeIn,filterLikeAll: Add optional Parameter preserveKey
+* Redesign wildcardMatch for flatkeys
+
 ## Version 2.4 (2021-11-22)
 * Add aggregate functions JSON, ARRAY
+* Add csv option eol
 
 ## Version 2.3 (2021-06-22)
 * clean up for phpstan up to level 5
+
+## Version 2.2 (2021-04-10)
+* createFromXML now works with XML namespaces
 
 ## Version 2.1 (2021-04-21)
 * Add method merge
 * Add public static function allRowKeys(array$data)
 * Redesign method rectify
+* Add function split
 
 ## Version 2.0 (2020-12-15)
 * Add method filterGroupAggregate
