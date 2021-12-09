@@ -4,8 +4,8 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 2.4                                                             |
-|  Date: 2021-11-22                                                         |
+|  Version: 2.5                                                             |
+|  Date: 2021-12-09                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2021 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -33,6 +33,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     "delimiter" => ',',
     "enclosure" => '"',
     "escape" => "\\",
+    "eol" => "\r\n",
   ];
 
   private $csvOptions;
@@ -422,7 +423,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   */
   public static function wildcardMatch($pattern, $string){
     $pattern = preg_quote($pattern,'/');        
-    $pattern = str_replace( ['\*','\?'] , ['.*','.'], $pattern);   
+    $pattern = str_replace( ['\*','\?'] , ['.*','[^.]*'], $pattern);   
     return (bool)preg_match( '/^' . $pattern . '$/' , $string );
   }
   
@@ -557,8 +558,8 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @param $inList : List of like-Terms
   * @return $this
   */  
-  public function filterLikeAll($fieldName, $inList){
-    return $this->filterLike($fieldName, $inList, true);
+  public function filterLikeAll($fieldName, $inList, $preserveKey = false){
+    return $this->filterLike($fieldName, $inList, $preserveKey, true);
   }
 
   
@@ -568,8 +569,8 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @param $inList : List of like-Terms
   * @return $this
   */  
-  public function filterLikeIn($fieldName, $inList){
-    return $this->filterLike($fieldName, $inList, false);
+  public function filterLikeIn($fieldName, $inList, $preserveKey = false){
+    return $this->filterLike($fieldName, $inList,$preserveKey, false);
   }
 
 /* 
@@ -830,9 +831,10 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   /**
   * Get all child-arrays with keys defined in array of keyPatterns
   * @param array $keyPatterns : array with flatten keys with wildcards * and ?
+  * @param bool $addFlatKeys : if true, add flatkeys
   * @return $this
   */
-  public function collectChilds(array $keyPatterns){
+  public function collectChilds(array $keyPatterns, $addFlatKeys = false){
     $iterator =  new RecursiveIteratorIterator(
       new RecursiveArrayIterator($this->data),RecursiveIteratorIterator::SELF_FIRST
     );
@@ -850,7 +852,17 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
           }
         }
         if($countConditions === 0) {
-          $this->data[] = $subarr;
+          if($addFlatKeys){
+            $keys = "";
+            for ($i = 0; $i <= $iterator->getDepth(); $i++) {
+              if($keys != "") $keys .= ".";
+              $keys .= $iterator->getSubIterator($i)->key();
+            }
+            $this->data[$keys] = $subarr;
+          }
+          else{
+            $this->data[] = $subarr;
+          }
         }  
       }
     }
@@ -1066,6 +1078,15 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   }
 
  /*
+  * fetchAll and save it as csv-file
+  * @param string $fileName 
+  * @return bool true/false 
+  */  
+  public function saveAsCsv($fileName){
+    return $this->fetchAllAsCSV($fileName);
+  }
+
+ /*
   * get array as CSV-String or save as csv-file
   * @param string $fileName or "" 
   * @return string or true/false if fileName used
@@ -1080,13 +1101,16 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
         fwrite($fp,self::BOM);  
       }
       $setTitle = $option['title'];
+      $eol = $option['eol'];
       foreach($this->fetchAll() as $row){
         if($setTitle){
           $title = array_keys($row);
           fputcsv($fp, $title, $option['delimiter'], $option['enclosure'], $option['escape']);
+          if("\n" != $eol && 0 === fseek($fp, -1, SEEK_CUR)) fwrite($fp, $eol);
           $setTitle = false; 
         }
-        fputcsv($fp, $row, $option['delimiter'], $option['enclosure'], $option['escape']); 
+        fputcsv($fp, $row, $option['delimiter'], $option['enclosure'], $option['escape']);
+        if("\n" != $eol && 0 === fseek($fp, -1, SEEK_CUR)) fwrite($fp, $eol); 
       }
       if($fileName){
         //save as file
@@ -1400,7 +1424,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   *                   false also one likes must contain in fieldName
   * @return $this
   */  
-  private function filterLike($fieldName, $inList, $flagAll = true){
+  private function filterLike($fieldName, $inList, $preserveKey = false, $flagAll = true){
     $firstRowData = reset($this->data);
     if(!array_key_exists($fieldName, $firstRowData)){
         $msg = "Unknown fieldname '$fieldName'  ".__METHOD__;
@@ -1424,7 +1448,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       //delete row if not any like
       unset($this->data[$key]);
     }
-    $this->data = array_values($this->data);
+    if(!$preserveKey){
+      $this->data = array_values($this->data);
+    }
     return $this;
   }
 
