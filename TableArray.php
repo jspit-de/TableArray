@@ -4,11 +4,11 @@
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 2.5                                                             |
-|  Date: 2021-12-09                                                         |
+|  Version: 2.6                                                             |
+|  Date: 2022-01-03                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
-| Copyright © 2018..2021 Peter Junk (alias jspit). All Rights Reserved.     |
+| Copyright © 2018..2022 Peter Junk (alias jspit). All Rights Reserved.     |
 | ------------------------------------------------------------------------- |
 |   License: Distributed under the Lesser General Public License (LGPL)     |
 |            http://www.gnu.org/copyleft/lesser.html                        |
@@ -45,9 +45,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
  
  /*
   * @param mixed : table array or iterator
-  * @param mixed : $keyPathToData string or array
+  * @param mixed : $filter string or array or callable
   */
-  final public function __construct($data = [[]], $keyPathToData = null){
+  final public function __construct($data = [[]], $filter = null){
     if(is_array($data)){
       $this->data = $data;
     }
@@ -63,7 +63,12 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
       throw new \InvalidArgumentException($msg);
     }
     //optional parameter 2 : string with key-path or array with keys to table-array
-    if($keyPathToData !== null){
+    //or callable
+    if(is_callable($filter)){
+      $this->data = self::arrayFilterRecursive($this->data, $filter);
+    }
+    elseif($filter !== null){
+      $keyPathToData = $filter;
       if(is_string($keyPathToData) AND $keyPathToData != ""){
         $keyPathToData =  max(explode(',',$keyPathToData),explode('.',$keyPathToData));
       }
@@ -95,9 +100,10 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
          return mb_strtoupper(mb_substr($val, 0, 1)).mb_substr($val, 1);
       },
       'FORMAT' => 'sprintf',  //par: 'format',field,[field]
-      'DATEFORMAT' => function($format,$date){
+      'DATEFORMAT' => function($format,$date,$unit=null){
         if(is_numeric($date)){
           //Timestamp
+          if($unit === 'ms') $date = (int)($date/1000);
           $date = date_create()->setTimestamp($date);
         }
         elseif(is_string($date)) $date = date_create($date);
@@ -162,23 +168,24 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
  /*
   * create a instance
   * @param $data : 2 dim array, iterator or tableArray Instance
-  * @param mixed : $keyPathToData string or array
+  * @param mixed : $filter string or array or callable
   * @return instance of tableArray
   */
-  public static function create($data = [[]],$keyPathToData = null,...$addpar){
-    return new static($data, $keyPathToData,...$addpar);
+  public static function create($data = [[]],$filter = null,...$addpar){
+    return new static($data, $filter,...$addpar);
   }
 
  /*
   * create a instance from JSON-String
   * @param $jsonStr : represents a 2-dimensional array
-  * @param mixed : $keyPathToData string or array
+  * @param mixed : $filter string or array or callable
   * @return instance of tableArray
   */
-  public static function createFromJson($jsonStr, $keyPathToData = null){
+  public static function createFromJson($jsonStr, $filter = null){
     //remove annoying characters how BOM from start + end
+    //also processes JSONP strings
     $jsonStr = preg_replace(['~^[^\[\{]+~u',"~[^\]\}]+$~u"],'',$jsonStr);
-    return new static(json_decode($jsonStr, true),$keyPathToData);
+    return new static(json_decode($jsonStr, true),$filter);
   }
 
  /*
@@ -425,6 +432,28 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     $pattern = preg_quote($pattern,'/');        
     $pattern = str_replace( ['\*','\?'] , ['.*','[^.]*'], $pattern);   
     return (bool)preg_match( '/^' . $pattern . '$/' , $string );
+  }
+
+ /**
+  * Returns all filtered sub-arrays
+  * @param array $arr
+  * @param callable $filter param $current, $key, $it
+  * @return array
+  */
+  public static function arrayFilterRecursive(array $arr,callable $filter){
+    $res = array();
+    $it =  new RecursiveIteratorIterator(
+      new RecursiveArrayIterator($arr),RecursiveIteratorIterator::SELF_FIRST
+    );
+    foreach($it as $current){
+      if(is_array($current)){
+        $key = self::getFlatKeyFromIterator($it);
+        if($filter($current, $key, $it)) {
+          $res[$key] = $current;
+        }
+      }
+    }
+    return $res;
   }
   
  /*
@@ -853,11 +882,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
         }
         if($countConditions === 0) {
           if($addFlatKeys){
-            $keys = "";
-            for ($i = 0; $i <= $iterator->getDepth(); $i++) {
-              if($keys != "") $keys .= ".";
-              $keys .= $iterator->getSubIterator($i)->key();
-            }
+            $keys = self::getFlatKeyFromIterator($iterator);
             $this->data[$keys] = $subarr;
           }
           else{
@@ -1704,6 +1729,18 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     return self::$arr2d;
   }
 
-
+ /**
+  * get flat keys as string
+  * @param iterator $iterator
+  * @return string 
+  */
+  private static function getFlatKeyFromIterator($iterator) {
+    $keys = "";
+    for ($i = 0; $i <= $iterator->getDepth(); $i++) {
+      if($keys != "") $keys .= ".";
+      $keys .= $iterator->getSubIterator($i)->key();
+    }
+    return $keys;
+  }
  
 }
