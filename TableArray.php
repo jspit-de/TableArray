@@ -47,7 +47,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @param mixed : table array or iterator
   * @param mixed : $filter string or array or callable
   */
-  final public function __construct($data = [[]], $filter = null){
+  final public function __construct($data = [], $filter = null){
     if(is_array($data)){
       $this->data = $data;
     }
@@ -171,7 +171,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @param mixed : $filter string or array or callable
   * @return instance of tableArray
   */
-  public static function create($data = [[]],$filter = null,...$addpar){
+  public static function create($data = [],$filter = null,...$addpar){
     return new static($data, $filter,...$addpar);
   }
 
@@ -489,6 +489,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return $this
   */  
   public function orderBy($sqlOrderTerm){
+    if(empty($this->data)) return $this;
     $this->sqlSort = $this->setSort($sqlOrderTerm);
     //uasort($this->data,array($this,"sortFunction"));
     usort($this->data,array($this,"sortFunction"));
@@ -501,6 +502,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return $this
   */  
   public function select($colKeys){
+    if(empty($this->data)) return $this;
     if(is_array($colKeys)) $colKeys = implode(",", $colKeys);
 
     if(!is_string($colKeys)) {
@@ -665,6 +667,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return $this
   */  
   public function filterGroupAggregate(array $aggregates, array $groups = [], $delim = ","){
+    if(empty($this->data)) return $this;
     //check if $aggFields and $groups valid
     $firstRow = reset($this->data);
     $fileldsFirstRow = array_keys($firstRow);
@@ -817,6 +820,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return $this
   */  
   public function transpose(){
+    if(empty($this->data)) return $this;
     $transArr = [];
     foreach($this->data as $keyRow => $subArr) {
       foreach($subArr as $keyCol => $value) {
@@ -1024,6 +1028,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * flatten: flat all fields from row 
   */
   public function flatten($delimter = "."){
+    if(empty($this->data)) return $this;
     if(array_filter(reset($this->data),function($val){ return !is_scalar($val);})) {
       foreach($this->data as $i => $row){
         $this->data[$i] = $this->arrayFlatten($row,$delimter);
@@ -1036,6 +1041,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * addFlatKeys: add flat cols from array-fields 
   */
   public function addFlatKeys($delimter = "."){
+    if(empty($this->data)) return $this;
     if(array_filter(reset($this->data),function($val){ return !is_scalar($val);})) {
       foreach($this->data as $i => $row){
         $this->data[$i] = array_merge($row,$this->arrayFlatten($row,$delimter));
@@ -1163,6 +1169,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return array
   */  
   public function fetchKeyValue($fieldNameKey, $fieldNameValue){
+    if(empty($this->data)) return [];
     //ignore select
     $firstDataRow = reset($this->data);
     if(array_key_exists($fieldNameKey, $firstDataRow) AND
@@ -1178,6 +1185,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return 1 dimensional numerical array or false if error
   */  
   public function fetchColumn($fieldName){
+    if(empty($this->data)) return [];
     //ignore select
     if(array_key_exists($fieldName, reset($this->data))){
       return array_column($this->data, $fieldName);    
@@ -1206,6 +1214,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
  * @return one dimensional array or false if error
  */
   public function fetchRow($key = null){
+    if(empty($this->data)) return [];
     $selectData = $this->getSelectData($this->data);
     if($key === NULL) {
       return reset($selectData);
@@ -1228,6 +1237,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return array of tabeles with $groupName as key
   */  
   public function fetchGroup(array $groups){
+    if(empty($this->data)) return [];
     if(count($groups) == 0) {
       throw new \InvalidArgumentException("No groups given");
     }      
@@ -1283,9 +1293,12 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * return false if index not exists
   */
   public function fieldNameRaw($index = null){
-    $keys = array_keys(reset($this->data));
-    if($index === null) return $keys;   
-    return array_key_exists($index,$keys) ? $keys[$index] : false;
+    if($firstRow = reset($this->data)){
+      $keys = array_keys($firstRow);
+      if($index === null) return $keys;   
+      return array_key_exists($index,$keys) ? $keys[$index] : false;
+    }
+    return false;
   } 
   
 
@@ -1450,6 +1463,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * @return $this
   */  
   private function filterLike($fieldName, $inList, $preserveKey = false, $flagAll = true){
+    if(empty($this->data)) return $this;
     $firstRowData = reset($this->data);
     if(!array_key_exists($fieldName, $firstRowData)){
         $msg = "Unknown fieldname '$fieldName'  ".__METHOD__;
@@ -1569,7 +1583,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   private function invalidFieldNames(array $fields){
     $firstRow = reset($this->data);
     foreach($fields as $fieldName){
-      if(!array_key_exists($fieldName, $firstRow)){
+      if(!$firstRow OR !array_key_exists($fieldName, $firstRow)){
         return $fieldName;
       }
     }
