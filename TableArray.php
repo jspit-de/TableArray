@@ -5,7 +5,7 @@
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
 |  Version: 2.6                                                             |
-|  Date: 2022-01-03                                                         |
+|  Date: 2022-01-07                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2022 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -100,11 +100,17 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
          return mb_strtoupper(mb_substr($val, 0, 1)).mb_substr($val, 1);
       },
       'FORMAT' => 'sprintf',  //par: 'format',field,[field]
-      'DATEFORMAT' => function($format,$date,$unit=null){
+      'DATEFORMAT' => function($format,$date,$options=""){
         if(is_numeric($date)){
           //Timestamp
-          if($unit === 'ms') $date = (int)($date/1000);
+          if(stripos($options,'ms') !== false) {
+            //millisecond timestamp
+            $date = (int)($date/1000);
+          }
           $date = date_create()->setTimestamp($date);
+          if(stripos($options,'utc') !== false){
+            $date->setTimeZone(new DateTimeZone('UTC'));
+          }
         }
         elseif(is_string($date)) $date = date_create($date);
         if($date instanceOf \DateTime) {
