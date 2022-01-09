@@ -1,7 +1,8 @@
 # tableArray
 
-## Version 2.6 (2022-01-03)
+## Version 2.6 (2022-01-09)
 * Constructor method extended. An optional filter function can now be used to collect all rows.
+* Add print method for debugging
 
 ## Version 2.5 (2021-12-09)
 * Modify method collectChilds, optional with flatkeys
