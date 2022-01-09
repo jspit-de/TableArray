@@ -5,7 +5,7 @@
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
 |  Version: 2.6                                                             |
-|  Date: 2022-01-07                                                         |
+|  Date: 2022-01-09                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2022 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -1270,7 +1270,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     );    
   }
 
- /*
+ /**
   * set csv options
   * @param array option
   * @return $this
@@ -1327,7 +1327,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   }
 
   
- /*
+ /**
   * remove first row and use it for keys
   * @return $this
   */
@@ -1348,6 +1348,26 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
     $args = func_get_args();
     $class = array_shift($args);
     return new $class($this,...$args);
+  }
+
+ /**
+  * print for debug
+  * @param string $comment
+  * @param int $limit, default 100
+  * @return $this
+  */
+  public function print($comment = "",$limit = 100)
+  {
+    echo "<br>// ".$comment;
+    if(class_exists('debug')) {
+      debug::write($this->fetchLimit($limit));
+    }
+    else{
+      echo '<pre>$data = ';
+      var_export($this->fetchLimit($limit));
+      echo ";</pre>";
+    }
+    return $this;
   }
 
  /*
