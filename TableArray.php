@@ -5,7 +5,7 @@
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
 |  Version: 2.6                                                             |
-|  Date: 2022-01-09                                                         |
+|  Date: 2022-01-10                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2022 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -17,7 +17,7 @@
 | FITNESS FOR A PARTICULAR PURPOSE.                                         |
 '---------------------------------------------------------------------------'
 */
-class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
+class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
 {
   private $userFct = [];
   private $sqlSort = [];  //internal
@@ -1060,14 +1060,16 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   * get the array
   * @param: integer $limit > 0
   * @param: integer $start >= 0
+  * @param: bool $preserveKey = false : new numeric key for result
   * @return array
   */  
-  public function fetchLimit($limit = 1, $start = 0) {
+  public function fetchLimit($limit = 1, $start = 0, $preserveKey = false) {
     $data = [];
-    foreach($this->data as $row){
+    foreach($this->data as $key => $row){
       if($start-- >0) continue;
       if($limit-- <= 0) break;
-      $data[] = $row;
+      if($preserveKey) $data[$key] = $row;
+      else $data[] = $row;
     }
     return $this->getSelectData($data);
   }
@@ -1075,15 +1077,17 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   /*
   * get limit elements from end
   * @param: integer $limit > 0
+  * @param: bool $preserveKey = false : new numeric key for result
   * @return array
   */  
-  public function fetchLimitFromEnd($limit = 1) {
+  public function fetchLimitFromEnd($limit = 1, $preserveKey = false) {
     $start = $this->count()-$limit;
     $i = 0;
     $data = [];
-    foreach($this->data as $row){
+    foreach($this->data as $key => $row){
       if($i++ < $start) continue;
-      $data[] = $row;
+      if($preserveKey) $data[$key] = $row;
+      else $data[] = $row;
     }
     return $this->getSelectData($data);
   }
@@ -1360,11 +1364,11 @@ class TableArray extends \ArrayIterator implements \JsonSerializable, \Countable
   {
     echo "<br>// ".$comment;
     if(class_exists('debug')) {
-      debug::write($this->fetchLimit($limit));
+      debug::write($this->fetchLimit($limit,0,true));
     }
     else{
       echo '<pre>$data = ';
-      var_export($this->fetchLimit($limit));
+      var_export($this->fetchLimit($limit,0,true));
       echo ";</pre>";
     }
     return $this;
