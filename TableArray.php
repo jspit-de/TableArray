@@ -42,10 +42,10 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   const SEPARATOR = "\x02";
   const BOM = "\xef\xbb\xbf";
   
- 
  /*
   * @param mixed : table array or iterator
   * @param mixed : $filter string or array or callable
+  * @throws InvalidArgumentException
   */
   final public function __construct($data = [], $filter = null){
     if(is_array($data)){
@@ -199,6 +199,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param $xml: xml-String or SimpleXML Object 
   * @param $xpath: xpath-String (optional)
   * @return instance of tableArray
+  * @throws InvalidArgumentException
   */
   public static function createFromXML($xml, $strXPath = null){
     if(is_string($xml)) {
@@ -300,9 +301,10 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param string $input
   * @param string $regExRow for split rows
   * @param string $regExSplitLines for split lines
+  * @throws InvalidArgumentException
   */
   public static function createFromString($input, $regExRow = ',', $regExSplitLines = '/\R/' ){
-    $arr = @preg_split($regExSplitLines,$input,NULL,PREG_SPLIT_NO_EMPTY);
+    $arr = @preg_split($regExSplitLines,$input,-1,PREG_SPLIT_NO_EMPTY);
     if(!is_array($arr)) {
       //error
       $msg = "3.Parameter '".$regExSplitLines."' is not a valid RegEx for ".__METHOD__;
@@ -317,6 +319,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param string $file Filename or Wrapper
   * @return object
   * csv options must set with tableArray::setCsvDefaultOptions
+  * @throws InvalidArgumentException
   */
   public static function createFromCsvFile($file = null){
     $file = $file ?: self::$csvDefaultOptions['file'];
@@ -349,6 +352,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * create from grouped json-string or grouped array
   * @param string $input
   * @param array $keys : array of names for groupkeys
+  * @throws InvalidArgumentException
   */
   public static function createFromGroupedArray($input, array $keys = ['key']){
     if(is_string($input)) {
@@ -374,15 +378,6 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
     }
     return false;
   }
-
-
- /*
-  * clone self
-  */
-  public function clone(){
-    return new static($this);
-  }
-
 
  /*
   * check if data is a array with table-structure
@@ -506,6 +501,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * set select
   * @param string or array
   * @return $this
+  * @throws InvalidArgumentException
   */  
   public function select($colKeys){
     if(empty($this->data)) return $this;
@@ -525,7 +521,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
       throw new \InvalidArgumentException($msg);
     }
     //prepare and explode terms
-    //$validFieldNames = array_keys(reset($this->data));
+    $validFieldNames = [];
     $firstDataRow = reset($this->data);
     $selectFileds = [];
     foreach($this->splitarg($colKeys) as $termObj){
@@ -633,6 +629,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * filter all rows with field is unique from array
   * @param $fieldNames: array with fieldNames or null for all
   * @return $this
+  * @throws InvalidArgumentException
   */  
   public function filterUnique(array $fieldNames = null){
     if($fieldNames === null){
@@ -671,6 +668,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param $aggregates: array with $fieldName => AggFunction
   * @param $groups: array with fieldnames for groups
   * @return $this
+  * @throws InvalidArgumentException
   */  
   public function filterGroupAggregate(array $aggregates, array $groups = [], $delim = ","){
     if(empty($this->data)) return $this;
@@ -841,7 +839,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * merge array
   * @param mixed $data : 2 dim array, iterator or tableArray Instance
   * @return $this
-  * @throw errors
+  * @throws Error
   */
   public function merge($data){
     try{
@@ -858,6 +856,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
  /**
   * rectify: realizes uniform keys in all rows by adding missing keys
   * @return $this
+  * @throws InvalidArgumentException
   */
   public function rectify() {
     if(!$this->mk_rectify()){
@@ -1012,6 +1011,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * the column must contain unique values for new keys
   * @param string $fieldName
   * @return $this
+  * @throws InvalidArgumentException
   */
   public function fieldAsKey($fieldName = "_key"){
     if(!array_key_exists($fieldName, reset($this->data))){
@@ -1131,6 +1131,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * get array as CSV-String or save as csv-file
   * @param string $fileName or "" 
   * @return string or true/false if fileName used
+  * @throws InvalidArgumentException
   */  
   public function fetchAllAsCSV($fileName = ""){
     $option = $this->csvOptions;
@@ -1245,6 +1246,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
  /*
   * @param array $groups: array of max. 2 valid Fieldnames (key)
   * @return array of tabeles with $groupName as key
+  * @throws InvalidArgumentException
   */  
   public function fetchGroup(array $groups){
     if(empty($this->data)) return [];
@@ -1278,6 +1280,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * set csv options
   * @param array $options option
   * @return $this
+  * @throws InvalidArgumentException
   */
   public function setOption(array $options = []){
     if($options == array_intersect_key($options, $this->csvOptions)){
@@ -1360,7 +1363,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param int $limit, default 100
   * @return $this
   */
-  public function print($comment = "",$limit = 100)
+  public function dprint($comment = "",$limit = 100)
   {
     echo "<br>// ".$comment.'<pre>$data = ';
     var_export($this->fetchLimit($limit,0,true));
@@ -1485,6 +1488,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param $flagAll : true all likes must contain in fieldName
   *                   false also one likes must contain in fieldName
   * @return $this
+  * @throws InvalidArgumentException
   */  
   private function filterLike($fieldName, $inList, $preserveKey = false, $flagAll = true){
     if(empty($this->data)) return $this;
@@ -1516,7 +1520,6 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
     }
     return $this;
   }
-
   
  /*
   * Join On
@@ -1525,7 +1528,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @param $refId name id Basis-Array
   * @param $joinTyp 'left' or 'inner'
   * @return $this
-  
+  * @throws InvalidArgumentException
   */
   private function joinOn($ref, $tableAlias, $idRef, $refId, $joinTyp = "inner"){
     if($ref instanceof TableArray) {

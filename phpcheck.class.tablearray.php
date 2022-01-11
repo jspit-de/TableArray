@@ -1,6 +1,6 @@
 <?php
-//2022-01-04
-//check for TableArray V2.4
+//2022-01-11
+//check for TableArray V2.6
 //Remove comment in the next line if use class TableArray with Namespace
 //use Jspit\TableArray;
 error_reporting(-1);
@@ -732,6 +732,16 @@ $arr = TableArray::create([['ts' => $ms_timestamp ]])
   ->fetchColumn('testDate')
 ;
 $t->checkEqual($arr, [$testDate]);
+
+$t->start('select and use DATEFORMAT with UTC-Time and a ms-Timestamp');
+$testDate = '2021-01-20 14:15:16';
+$msTimestamp = strtotime($testDate.'UTC') * 1000;
+$arr = TableArray::create([['ts' => $msTimestamp]])
+  ->select("DATEFORMAT('Y-m-d H:i:s',ts,'msUTC') as testDate")
+  ->fetchColumn('testDate')
+;
+$t->checkEqual($arr, [$testDate]);
+
 
 
 $t->start('select and manipulate fields with REPLACE');
@@ -1585,6 +1595,20 @@ $expected = [
 ];
 $t->checkEqual($newData, $expected);
 
+$t->start('limit with fetch, start and keep keys');
+$data = [
+  0 => ['A', 3],
+  1 => ['B', 6],
+  2 => ['C', 14],
+];
+$newData = TableArray::create($data)
+  ->fetchLimit(2,1,true);  //Limit 2, Start 1, keep keys
+$expected = [
+ 1 => ['B', 6],
+ 2 => ['C', 14],
+];
+$t->checkEqual($newData, $expected);
+
 $t->start('limit with fetch from end');
 $data = [
   ['A', 3],
@@ -2143,7 +2167,7 @@ $t->checkEqual($newData, $expected);
 
 $t->start('group_max argument incorrect -> exception');
 $closure = function(){
-  TableArray::create()
+  TableArray::create([[]])
     ->filterGroupAggregate(['value' => 'max'],['group11'])
   ;
 };
@@ -2383,7 +2407,34 @@ $expected = [
 ];
 $t->checkEqual($result, $expected);
 
-//performance
+/*
+ * debugging
+ */
+$t->setResultFilter("html");
+$t->startOutput('debug print');
+$data = [ //is a table array
+  [11,12],
+  [21,22]
+];  
+TableArray::create($data)
+  ->dprint('default limit 100')
+;
+$t->checkOutput('default limit 100,11,22');
+
+$t->startOutput('debug print limit 1');
+$data = [ //is a table array
+  [11,12],
+  [21,22]
+];  
+TableArray::create($data)
+  ->dprint('limit 1',1)
+;
+$t->checkOutput('limit 1,11,12');
+$t->setResultFilter();
+
+/*
+ * performance
+ */
 $t->start('create big Integer field');
 //create data
 $data =[];
