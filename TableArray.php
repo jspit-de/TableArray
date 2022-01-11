@@ -5,7 +5,7 @@
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
 |  Version: 2.6                                                             |
-|  Date: 2022-01-10                                                         |
+|  Date: 2022-01-11                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
 | Copyright © 2018..2022 Peter Junk (alias jspit). All Rights Reserved.     |
@@ -109,7 +109,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
           }
           $date = date_create()->setTimestamp($date);
           if(stripos($options,'utc') !== false){
-            $date->setTimeZone(new DateTimeZone('UTC'));
+            $date->setTimeZone(new \DateTimeZone('UTC'));
           }
         }
         elseif(is_string($date)) $date = date_create($date);
@@ -448,8 +448,8 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   */
   public static function arrayFilterRecursive(array $arr,callable $filter){
     $res = array();
-    $it =  new RecursiveIteratorIterator(
-      new RecursiveArrayIterator($arr),RecursiveIteratorIterator::SELF_FIRST
+    $it =  new \RecursiveIteratorIterator(
+      new \RecursiveArrayIterator($arr),\RecursiveIteratorIterator::SELF_FIRST
     );
     foreach($it as $current){
       if(is_array($current)){
@@ -874,8 +874,8 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   * @return $this
   */
   public function collectChilds(array $keyPatterns, $addFlatKeys = false){
-    $iterator =  new RecursiveIteratorIterator(
-      new RecursiveArrayIterator($this->data),RecursiveIteratorIterator::SELF_FIRST
+    $iterator =  new \RecursiveIteratorIterator(
+      new \RecursiveArrayIterator($this->data),\RecursiveIteratorIterator::SELF_FIRST
     );
     $this->data = [];
     foreach($iterator as $subarr){
@@ -1276,7 +1276,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
 
  /**
   * set csv options
-  * @param array option
+  * @param array $options option
   * @return $this
   */
   public function setOption(array $options = []){
@@ -1362,15 +1362,9 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   */
   public function print($comment = "",$limit = 100)
   {
-    echo "<br>// ".$comment;
-    if(class_exists('debug')) {
-      debug::write($this->fetchLimit($limit,0,true));
-    }
-    else{
-      echo '<pre>$data = ';
-      var_export($this->fetchLimit($limit,0,true));
-      echo ";</pre>";
-    }
+    echo "<br>// ".$comment.'<pre>$data = ';
+    var_export($this->fetchLimit($limit,0,true));
+    echo ";</pre>";
     return $this;
   }
 
@@ -1773,12 +1767,12 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
     return self::$arr2d;
   }
 
- /**
+ /*
   * get flat keys as string
-  * @param iterator $iterator
+  * @param RecursiveIteratorIterator $iterator
   * @return string 
   */
-  private static function getFlatKeyFromIterator($iterator) {
+  private static function getFlatKeyFromIterator(\RecursiveIteratorIterator $iterator) {
     $keys = "";
     for ($i = 0; $i <= $iterator->getDepth(); $i++) {
       if($keys != "") $keys .= ".";
