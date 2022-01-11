@@ -1,6 +1,6 @@
 # TableArray 
 
-PHP library for arrays with tableslike structure (V2.5)
+PHP library for arrays with tableslike structure (V2.6)
 
 ### Features
 
@@ -183,6 +183,7 @@ var_dump($newData === $expected);  //bool(true)
   * unGroup($array, $keys)
   * count
   * toClass
+  * print($comment,$limit)
   
 #### Internal functions may be used by select and orderBy
   * ABS(fieldName)
@@ -252,4 +253,4 @@ http://jspit.de/check/phpcheck.class.tablearray.php
 
 ### Requirements
 
-- PHP 5.6+, PHP 7.x
+- PHP 7.x
