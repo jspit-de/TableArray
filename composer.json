@@ -5,5 +5,5 @@
     "type": "library",
 	"require": {
 		"php": "^7.0|^8.0"
-	},
+	}
 }
