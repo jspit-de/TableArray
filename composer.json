@@ -6,9 +6,10 @@
 	"require": {
 		"php": "^7.0|^8.0"
 	},
+    "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
-            "jspit\\": "/"
+            "\\": "/"
         }
     }
 }
