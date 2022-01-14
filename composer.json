@@ -1,0 +1,9 @@
+{
+    "name": "jspit/tablearray",
+    "description": "PHP library for arrays with tableslike structure",
+    "license": "MIT",
+    "type": "library",
+	"require": {
+		"php": "^7.0|^8.0"
+	},
+}
