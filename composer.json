@@ -9,7 +9,7 @@
     "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
-            "jspit\\": "tablearray/"
+            "jspit\\": "/"
         }
     }
 }
