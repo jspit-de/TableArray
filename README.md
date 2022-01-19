@@ -1,6 +1,6 @@
 # TableArray 
 
-PHP library for arrays with tableslike structure (V2.6)
+PHP library for arrays with tableslike structure (V2.6.1)
 
 ### Features
 
@@ -12,6 +12,7 @@ PHP library for arrays with tableslike structure (V2.6)
 #### Simple example 1
 
 ```php
+use Jspit\TableArray;
 require '/yourpath/TableArray.php';
 
 $data = [ 
@@ -33,6 +34,7 @@ var_dump($newData == $expected); //bool(true)
 #### Simple example 2
 
 ```php
+use Jspit\TableArray;
 require '/yourpath/TableArray.php';
 
 $data = [ 
@@ -59,6 +61,7 @@ var_dump($newData === $expected); //bool(true)
 #### Pivot Group example
 
 ```php
+use Jspit\TableArray;
 require '/yourpath/TableArray.php';
 
 $data = [ 
@@ -81,6 +84,7 @@ $expected = [
 #### CSV Import example 
 
 ```php
+use Jspit\TableArray;
 require '/yourpath/TableArray.php';
 
 $csv = new SplFileObject('datei.csv');
@@ -101,6 +105,7 @@ $tabArr = TableArray::create($csv)
 #### Example filterGroupAggregate 
  
 ```php
+use Jspit\TableArray;
 require '/yourpath/TableArray.php';
 
 $data = [ 

@@ -1,4 +1,6 @@
 # tableArray
+## Version 2.6.1 (2022-01-09)
+* Namespace enabled
 
 ## Version 2.6 (2022-01-09)
 * Constructor method extended. An optional filter function can now be used to collect all rows.

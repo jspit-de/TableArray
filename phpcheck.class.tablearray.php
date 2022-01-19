@@ -1,14 +1,15 @@
 <?php
 //2022-01-11
 //check for TableArray V2.6
-//Remove comment in the next line if use class TableArray with Namespace
-//use Jspit\TableArray;
+////Comment out the following line to use the class without a namespace
+use Jspit\TableArray;
+
 error_reporting(-1);
 //error_reporting(E_ALL ^ (E_WARNING | E_USER_WARNING));
 ini_set('display_errors', 1);
 header('Content-Type: text/html; charset=UTF-8');
 
-require __DIR__ . '/../class/TableArray.php';
+require __DIR__ . '/../class/'.str_replace('\\','/',TableArray::class).'.php';
 require __DIR__ . '/../class/phpcheck.php';
 
 $t = new PHPcheck;
@@ -20,7 +21,7 @@ $len = empty($_GET['len']) ? 1000 : (int)($_GET['len']);
 //Tests
 $t->start('exist versions info');
 $info = $t->getClassVersion(TableArray::class);
-$t->check($info, !empty($info) AND $info >= 2.6);
+$t->check($info, !empty($info) AND $info >= "2.6.1");
 
 $t->start('create Object from Array');
 $data = [

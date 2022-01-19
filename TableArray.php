@@ -1,10 +1,10 @@
 <?php
-//Remove comment in the next line if use class TableArray with Namespace
-//namespace Jspit;
+//Comment out the following line to use the class without a namespace
+namespace Jspit;
 /**
 .---------------------------------------------------------------------------.
 |  Software: Function Collection for Table-Arrays                           |
-|  Version: 2.6                                                             |
+|  Version: 2.6.1                                                           |
 |  Date: 2022-01-11                                                         |
 |  PHPVersion >= 7.0                                                        |
 | ------------------------------------------------------------------------- |
@@ -17,6 +17,7 @@
 | FITNESS FOR A PARTICULAR PURPOSE.                                         |
 '---------------------------------------------------------------------------'
 */
+
 class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
 {
   private $userFct = [];
@@ -41,6 +42,7 @@ class TableArray extends \ArrayIterator implements \JsonSerializable ,\Countable
   const CHECK_DATA_DURING_CONSTRUCT = false;
   const SEPARATOR = "\x02";
   const BOM = "\xef\xbb\xbf";
+  const VERSION = "2.6.1";
   
  /*
   * @param mixed : table array or iterator
