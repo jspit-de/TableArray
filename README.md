@@ -7,14 +7,40 @@ PHP library for arrays with tableslike structure (V2.6.1)
 - Create from Array, JSON-String, CSV-String, Iterator or XML
 - Methods for column selection, row filtering and sorting
 
+### Installation & loading
+Manually:
+
+- Code -> Download ZIP TableArray-master.zip
+- Extract zip to a new Folder
+
+```php
+use Jspit\TableArray;
+require '/Path_to_Folder/TableArray.php';
+
+var_dump(TableArray::VERSION);  //string(5) "2.6.1"
+```
+
+Install via Composer:
+
+run
+
+```sh
+composer require jspit/tablearray
+```
+
+```php
+use Jspit\TableArray;
+require '/Path_to_Composer_vendor_Folder/vendor/autoload.php';
+
+var_dump(TableArray::VERSION);  //string(5) "2.6.1"
+```
+
+
 ### Usage
 
 #### Simple example 1
 
 ```php
-use Jspit\TableArray;
-require '/yourpath/TableArray.php';
-
 $data = [ 
   ['id' => 1, 'val' => 23.333333333], 
   ['id' => 2, 'val' => 13.7777777777], 
@@ -34,9 +60,6 @@ var_dump($newData == $expected); //bool(true)
 #### Simple example 2
 
 ```php
-use Jspit\TableArray;
-require '/yourpath/TableArray.php';
-
 $data = [ 
   ['name' => 'A1', 'likes' => 3], 
   ['name' => 'A12', 'likes' => 6], 
@@ -61,9 +84,6 @@ var_dump($newData === $expected); //bool(true)
 #### Pivot Group example
 
 ```php
-use Jspit\TableArray;
-require '/yourpath/TableArray.php';
-
 $data = [ 
   ['group' => 1, 'type' => 'A', 'value' => 'AA'],
   ['group' => 2, 'type' => 'A', 'value' => 'BB'], 
@@ -84,9 +104,6 @@ $expected = [
 #### CSV Import example 
 
 ```php
-use Jspit\TableArray;
-require '/yourpath/TableArray.php';
-
 $csv = new SplFileObject('datei.csv');
 
 $csv->setFlags(SplFileObject::READ_CSV 
@@ -105,9 +122,6 @@ $tabArr = TableArray::create($csv)
 #### Example filterGroupAggregate 
  
 ```php
-use Jspit\TableArray;
-require '/yourpath/TableArray.php';
-
 $data = [ 
   ['id' => "1",'group' => 1, 'value' => 2, 'value2' => 3], 
   ['id' => "2",'group' => 2, 'value' => 4, 'value2' => 7],
