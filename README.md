@@ -6,12 +6,15 @@ PHP library for arrays with tableslike structure (V2.6.1)
 
 - Create from Array, JSON-String, CSV-String, Iterator or XML
 - Methods for column selection, row filtering and sorting
+- One file, no external requirements
 
 ### Installation & loading
 Manually:
 
 - Code -> Download ZIP TableArray-master.zip
 - Extract zip to a new Folder
+
+Of course, you can also copy the TableArray source code to your editor and save it.
 
 ```php
 use Jspit\TableArray;
