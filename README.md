@@ -107,17 +107,11 @@ $expected = [
 #### CSV Import example 
 
 ```php
-$csv = new SplFileObject('datei.csv');
-
-$csv->setFlags(SplFileObject::READ_CSV 
-  | SplFileObject::SKIP_EMPTY 
-  | SplFileObject::READ_AHEAD 
-  | SplFileObject::DROP_NEW_LINE
-);
-
-$tabArr = TableArray::create($csv)
-  //Using first row of CSV as the array keys
-  ->firstRowToKey()  
+TableArray::setCsvDefaultOptions([
+  'delimiter'=>',',
+  'title => true',  //use first row as keys
+]);
+$data = TableArray::createFromCsvFile('file.csv')
   ->fetchAll()
 ;
 ```
